@@ -6,9 +6,12 @@ import {
   Fingerprint,
   GitBranch,
   Lightbulb,
+  MessageCircleQuestion,
 } from 'lucide-react';
-import type { DiagnosisResult } from '../types';
-import { knowledgeNodes } from '../data/knowledge';
+import type { DiagnosisResult, Question } from '../types';
+import { knowledgeNodes, questions } from '../data/knowledge';
+import { relatedQuestionIds, stemLatex } from '../data/highSchool';
+import { MixedMath } from './MathTex';
 import { useEffect, useState } from 'react';
 
 const confidenceMap = {
@@ -39,14 +42,30 @@ export default function ReportPanel({
   analyzing,
   studentAnswer,
   correctAnswer,
+  questionId,
+  onFollowUp,
 }: {
   result: DiagnosisResult | null;
   analyzing: boolean;
   studentAnswer: string;
   correctAnswer: string;
+  questionId: string | null;
+  onFollowUp?: (questionId: string) => void;
 }) {
   const conf = result ? confidenceMap[result.confidence] : null;
   const confValue = useAnimatedNumber(conf?.value ?? 0, !!result);
+
+  // 追问验证：围绕薄弱节点换一题，让学生再次作答以验证漏洞
+  const followUps: Question[] =
+    result && !result.isCorrect
+      ? [
+          ...new Set(result.weakNodeIds.flatMap((id) => relatedQuestionIds[id] ?? [])),
+        ]
+          .filter((id) => id !== questionId)
+          .map((id) => questions.find((q) => q.id === id))
+          .filter((q): q is Question => !!q)
+          .slice(0, 2)
+      : [];
 
   return (
     <section className="glass relative flex-1 overflow-hidden p-5">
@@ -223,6 +242,37 @@ export default function ReportPanel({
                   })}
                 </div>
               </div>
+
+              {/* 追问验证 */}
+              {followUps.length > 0 && (
+                <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-4">
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                    <MessageCircleQuestion className="h-3.5 w-3.5 text-cyan-300" />
+                    追问验证 · 换一题确认是否真正掌握
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {followUps.map((q) => (
+                      <button
+                        key={q.id}
+                        onClick={() => onFollowUp?.(q.id)}
+                        className="flex items-center gap-2.5 rounded-lg border border-line bg-slate-900/50 px-3 py-2 text-left text-sm text-slate-300 transition-all hover:border-cyan-400/50 hover:text-cyan-200"
+                      >
+                        <span className="chip shrink-0 border-cyan-400/40 bg-cyan-400/10 text-cyan-300">
+                          再来一题
+                        </span>
+                        {stemLatex[q.id] ? (
+                          <MixedMath text={stemLatex[q.id]} />
+                        ) : (
+                          <span className="font-mono">{q.stem}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                    当前结论由错答模式推断，点击追问题重新作答，可进一步验证漏洞是否真实存在。
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>

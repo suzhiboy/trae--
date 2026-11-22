@@ -16,13 +16,17 @@ export default function TopNav({ demoActive }: { demoActive: boolean }) {
               Knowledge Detective
             </span>
           </div>
-          <div className="text-[11px] tracking-[0.3em] text-slate-500">AI 知识漏洞侦探</div>
+          <div className="text-[11px] tracking-[0.3em] text-slate-500">
+            高中数学 · AI 错因诊断
+          </div>
         </div>
       </div>
 
       {/* 右侧状态 */}
       <div className="flex items-center gap-4">
-        <span className="hidden text-sm font-medium text-slate-400 md:block">知识诊断中心</span>
+        <span className="hidden text-sm font-medium text-slate-400 md:block">
+          高中数学诊断中心
+        </span>
         <div
           className={`chip ${
             demoActive

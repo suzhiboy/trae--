@@ -46,7 +46,7 @@ export default function Sidebar({
         <div className="rounded-xl border border-line bg-slate-900/50 p-3 text-[11px] leading-relaxed text-slate-500">
           <span className="text-slate-300">侦探提示</span>
           <br />
-          选择题目 → 输入错误答案 → 定位知识漏洞 → 生成补习路径
+          选题作答 → 提交错答 → 定位漏洞 → 追问验证
         </div>
       </div>
     </nav>

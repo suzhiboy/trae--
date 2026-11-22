@@ -12,9 +12,11 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Network, X } from 'lucide-react';
+import { BookOpen, ListOrdered, Network, Sparkles, X } from 'lucide-react';
 import type { DiagnosisResult, KnowledgeNode } from '../types';
 import { knowledgeNodes, knowledgeEdges } from '../data/knowledge';
+import { hsNodes, hsEdges, nodeExtras } from '../data/highSchool';
+import { MathTex } from './MathTex';
 
 type NodeStatus = 'default' | 'weak' | 'priority' | 'dim';
 
@@ -25,6 +27,16 @@ type KDNodeData = {
 };
 
 type KDNode = Node<KDNodeData, 'kd'>;
+
+/* 合并：队员 B 的题库关联图谱 + 前端高中课程扩展图谱 */
+const allNodes: KnowledgeNode[] = [...knowledgeNodes, ...hsNodes];
+const allEdges = [...knowledgeEdges, ...hsEdges];
+
+/* 前置知识索引：target -> sources */
+const prereqMap = new Map<string, string[]>();
+for (const e of allEdges) {
+  prereqMap.set(e.target, [...(prereqMap.get(e.target) ?? []), e.source]);
+}
 
 /* ===== 自定义节点 ===== */
 function KDNodeCard({ data, selected }: NodeProps<KDNode>) {
@@ -101,6 +113,19 @@ function computeLayout(nodes: KnowledgeNode[], edges: { source: string; target: 
   return pos;
 }
 
+/* 双带布局：题库关联图谱在上，高中课程图谱在下，避免互相重叠 */
+const mergedPos = (() => {
+  const legacyPos = computeLayout(knowledgeNodes, knowledgeEdges);
+  const hsPos = computeLayout(hsNodes, hsEdges);
+  const half = (m: Map<string, { y: number }>) =>
+    m.size === 0 ? 0 : Math.max(...[...m.values()].map((p) => Math.abs(p.y)));
+  const offset = half(legacyPos) + half(hsPos) + 150;
+  const pos = new Map<string, { x: number; y: number }>();
+  legacyPos.forEach((p, id) => pos.set(id, p));
+  hsPos.forEach((p, id) => pos.set(id, { x: p.x, y: p.y + offset }));
+  return pos;
+})();
+
 /* ===== 主组件 ===== */
 export default function KnowledgeGraph({
   result,
@@ -114,12 +139,11 @@ export default function KnowledgeGraph({
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
 
   const { nodes, edges } = useMemo(() => {
-    const pos = computeLayout(knowledgeNodes, knowledgeEdges);
     const weak = new Set(result?.weakNodeIds ?? []);
     const path = new Set(result?.learningPathIds ?? []);
     const hasResult = !!result && !result.isCorrect;
 
-    const rfNodes: KDNode[] = knowledgeNodes.map((n) => {
+    const rfNodes: KDNode[] = allNodes.map((n) => {
       let status: NodeStatus = 'default';
       if (hasResult) {
         if (weak.has(n.id)) status = 'weak';
@@ -129,13 +153,13 @@ export default function KnowledgeGraph({
       return {
         id: n.id,
         type: 'kd' as const,
-        position: pos.get(n.id) ?? { x: 0, y: 0 },
+        position: mergedPos.get(n.id) ?? { x: 0, y: 0 },
         data: { label: n.label, group: n.group, status },
       };
     });
 
     const weakSet = weak;
-    const rfEdges: Edge[] = knowledgeEdges.map((e) => {
+    const rfEdges: Edge[] = allEdges.map((e) => {
       const hot = hasResult && weakSet.has(e.target);
       const intoPath = hasResult && !weakSet.has(e.target) && path.has(e.target);
       const color = hot ? '#fb6a4a' : intoPath ? '#8b5cf6' : '#31517e';
@@ -162,9 +186,16 @@ export default function KnowledgeGraph({
   }, [result]);
 
   const onNodeClick = useCallback((_: unknown, node: KDNode) => {
-    const found = knowledgeNodes.find((n) => n.id === node.id) ?? null;
+    const found = allNodes.find((n) => n.id === node.id) ?? null;
     setSelectedNode((cur) => (cur?.id === found?.id ? null : found));
   }, []);
+
+  const selectedExtra = selectedNode ? nodeExtras[selectedNode.id] : undefined;
+  const selectedPrereqs = selectedNode ? (prereqMap.get(selectedNode.id) ?? []) : [];
+  const selectedTips = selectedExtra?.tips ?? [
+    '重做 3 道同类题并总结易错点',
+    '把解题步骤讲给同学听，确认真正理解',
+  ];
 
   return (
     <section className="glass relative h-full overflow-hidden p-0">
@@ -175,6 +206,9 @@ export default function KnowledgeGraph({
         <span className="section-title">
           <Network className="h-4 w-4 text-cyan-300" />
           知识依赖图谱
+        </span>
+        <span className="chip hidden border-slate-600/40 bg-slate-800/60 text-slate-400 sm:inline-flex">
+          高中全模块 · {allNodes.length} 个知识点
         </span>
         {analyzing && (
           <span className="chip border-cyan-400/40 bg-cyan-400/10 text-cyan-300">
@@ -192,7 +226,7 @@ export default function KnowledgeGraph({
         onPaneClick={() => setSelectedNode(null)}
         fitView
         fitViewOptions={{ padding: 0.25, maxZoom: 1.1 }}
-        minZoom={0.4}
+        minZoom={0.3}
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}
         nodesDraggable
@@ -235,9 +269,9 @@ export default function KnowledgeGraph({
         </span>
       </div>
 
-      {/* 节点详情弹层 */}
+      {/* 节点详情弹层：解释 / 前置知识 / 复习建议 */}
       {selectedNode && (
-        <div className="absolute right-3 top-12 z-10 w-64 animate-fade-up rounded-xl border border-line bg-panel/90 p-4 shadow-glow backdrop-blur-xl">
+        <div className="absolute right-3 top-12 z-10 w-72 animate-fade-up rounded-xl border border-line bg-panel/90 p-4 shadow-glow backdrop-blur-xl">
           <button
             onClick={() => setSelectedNode(null)}
             className="absolute right-2 top-2 rounded-md p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
@@ -248,12 +282,66 @@ export default function KnowledgeGraph({
             {selectedNode.group} · {selectedNode.id.toUpperCase()}
           </div>
           <div className="mb-2 text-sm font-bold text-white">{selectedNode.label}</div>
-          <p className="text-xs leading-relaxed text-slate-400">{selectedNode.description}</p>
-          {result && result.weakNodeIds.includes(selectedNode.id) && (
-            <div className="mt-2.5 rounded-lg border border-danger/40 bg-danger/10 px-2.5 py-1.5 text-[11px] font-medium text-orange-300">
-              ⚠ 已标记为薄弱知识点
+
+          <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
+            {/* 解释 */}
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                <BookOpen className="h-3 w-3 text-cyan-300" />
+                知识点解释
+              </div>
+              <p className="text-xs leading-relaxed text-slate-400">{selectedNode.description}</p>
+              {selectedExtra?.latex && (
+                <div className="mt-1.5 overflow-x-auto rounded-lg bg-slate-950/70 px-2.5 py-1.5 text-cyan-200/90">
+                  <MathTex tex={selectedExtra.latex} className="text-[13px]" />
+                </div>
+              )}
             </div>
-          )}
+
+            {/* 前置知识 */}
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                <ListOrdered className="h-3 w-3 text-violet-300" />
+                前置知识
+              </div>
+              {selectedPrereqs.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedPrereqs.map((pid) => {
+                    const pn = allNodes.find((n) => n.id === pid);
+                    return (
+                      <span
+                        key={pid}
+                        className="chip border-violet-400/30 bg-violet-400/10 text-violet-200"
+                      >
+                        {pn?.label ?? pid}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500">无前置依赖，属于起点知识</p>
+              )}
+            </div>
+
+            {/* 复习建议 */}
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-300">
+                <Sparkles className="h-3 w-3 text-amber-300" />
+                复习建议
+              </div>
+              <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-400">
+                {selectedTips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+
+            {result && result.weakNodeIds.includes(selectedNode.id) && (
+              <div className="rounded-lg border border-danger/40 bg-danger/10 px-2.5 py-1.5 text-[11px] font-medium text-orange-300">
+                ⚠ 已标记为薄弱知识点
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

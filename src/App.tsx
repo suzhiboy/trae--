@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import TopNav from './components/TopNav';
 import Sidebar, { type ViewKey } from './components/Sidebar';
 import DiagnosisInput from './components/DiagnosisInput';
@@ -6,6 +6,7 @@ import ReportPanel from './components/ReportPanel';
 import KnowledgeGraph from './components/KnowledgeGraph';
 import LearningPath from './components/LearningPath';
 import HistoryPanel from './components/HistoryPanel';
+import CurriculumPanel from './components/CurriculumPanel';
 import { diagnose } from './engine/diagnose';
 import { questions } from './data/knowledge';
 import type { DiagnosisResult } from './types';
@@ -38,6 +39,7 @@ export default function App() {
   const [resultAnswer, setResultAnswer] = useState('');
   const [resultQuestionId, setResultQuestionId] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
@@ -69,44 +71,57 @@ export default function App() {
 
   const showComposite = view === 'diagnose';
 
+  // 追问验证：切换到追问题，回到诊断输入处重新作答
+  const handleFollowUp = useCallback((qId: string) => {
+    setQuestionId(qId);
+    setAnswer('');
+    setResult(null);
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TopNav demoActive={result !== null || analyzing} />
       <div className="flex min-h-0 flex-1">
         <Sidebar active={view} onChange={setView} />
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
           {showComposite && (
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-              {/* 左列：输入 + 报告 */}
-              <div className="flex flex-col gap-5 xl:col-span-5">
-                <DiagnosisInput
-                  questionId={questionId}
-                  answer={answer}
-                  analyzing={analyzing}
-                  onQuestionChange={(id) => {
-                    setQuestionId(id);
-                    setResult(null);
-                  }}
-                  onAnswerChange={setAnswer}
-                  onDiagnose={handleDiagnose}
-                />
-                <ReportPanel
-                  result={result}
-                  analyzing={analyzing}
-                  studentAnswer={resultAnswer}
-                  correctAnswer={
-                    questions.find((q) => q.id === resultQuestionId)?.correctAnswer ?? ''
-                  }
-                />
-              </div>
-
-              {/* 右列：知识图谱 + 学习路径 */}
-              <div className="flex flex-col gap-5 xl:col-span-7">
-                <div className="h-[420px] xl:h-[480px]">
-                  <KnowledgeGraph result={result} analyzing={analyzing} />
+            <div className="flex flex-col gap-5">
+              <CurriculumPanel />
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+                {/* 左列：输入 + 报告 */}
+                <div className="flex flex-col gap-5 xl:col-span-5">
+                  <DiagnosisInput
+                    questionId={questionId}
+                    answer={answer}
+                    analyzing={analyzing}
+                    onQuestionChange={(id) => {
+                      setQuestionId(id);
+                      setResult(null);
+                    }}
+                    onAnswerChange={setAnswer}
+                    onDiagnose={handleDiagnose}
+                  />
+                  <ReportPanel
+                    result={result}
+                    analyzing={analyzing}
+                    studentAnswer={resultAnswer}
+                    correctAnswer={
+                      questions.find((q) => q.id === resultQuestionId)?.correctAnswer ?? ''
+                    }
+                    questionId={resultQuestionId}
+                    onFollowUp={handleFollowUp}
+                  />
                 </div>
-                <LearningPath result={result} />
+
+                {/* 右列：知识图谱 + 学习路径 */}
+                <div className="flex flex-col gap-5 xl:col-span-7">
+                  <div className="h-[420px] xl:h-[480px]">
+                    <KnowledgeGraph result={result} analyzing={analyzing} />
+                  </div>
+                  <LearningPath result={result} />
+                </div>
               </div>
             </div>
           )}
