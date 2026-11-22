@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-abyss text-slate-200 font-sans antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99, 102, 241, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(34, 211, 238, 0.1), transparent),
+    radial-gradient(ellipse 50% 40% at 50% 110%, rgba(139, 92, 246, 0.1), transparent);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-line bg-panel/70 backdrop-blur-xl;
+    box-shadow: 0 8px 32px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(148, 163, 255, 0.06);
+  }
+
+  .section-title {
+    @apply flex items-center gap-2 text-sm font-semibold tracking-widest text-slate-400 uppercase;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+/* ===== React Flow 深色主题覆写 ===== */
+.react-flow {
+  --xy-background-color: transparent;
+}
+.react-flow__controls {
+  background: rgba(10, 15, 30, 0.85) !important;
+  border: 1px solid rgba(120, 150, 255, 0.15) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(120, 150, 255, 0.1) !important;
+  fill: #94a3b8 !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(99, 102, 241, 0.15) !important;
+}
+.react-flow__attribution {
+  background: transparent !important;
+  color: #334155 !important;
+}
+.react-flow__edge-path {
+  stroke-width: 1.6;
+}
+.react-flow__minimap {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 150, 255, 0.15);
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}

@@ -1,63 +1,18 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f5fb">
-  <title>知识漏洞侦探 · 错题诊断台</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="engine.js" defer></script>
-  <script src="graph.js" defer></script>
-  <script src="app.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#workspace">跳至诊断工作台</a>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="#workspace" aria-label="知识漏洞侦探，返回工作台">
-        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><circle cx="17.5" cy="17" r="9.5" stroke="currentColor" stroke-width="2.6"/><path d="m24.4 24 7.1 7.2M12.2 18.1l4-4.2 4.6 2.6 4-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="18.3" r="1.6" fill="currentColor"/></svg></span>
-        <span><strong>知识漏洞侦探</strong><small>Knowledge Detective</small></span>
-      </a>
-      <nav class="main-nav" aria-label="主导航">
-        <button id="nav-workspace" class="nav-item active" aria-current="page"><i data-icon="layout"></i>诊断工作台</button>
-        <button id="nav-cases" class="nav-item" aria-haspopup="dialog"><i data-icon="library"></i>案例库</button>
-      </nav>
-      <button class="help-button" id="help-button" aria-label="使用指南" aria-haspopup="dialog"><i data-icon="help"></i><span>使用指南</span></button>
-    </div>
-  </header>
-  <main id="workspace" tabindex="-1">
-    <section class="intro" aria-labelledby="page-title">
-      <div><p class="subject"><span></span>初中数学</p><h1 id="page-title">错题诊断台</h1>
-        <p class="intro-text">沿着错题里的线索，找到最该先补的知识点。</p></div>
-      <div class="engine-state"><span class="engine-dot"></span><span id="engine-state">本地案例模式</span></div>
-    </section>
-    <div class="workspace-grid">
-      <section class="input-panel paper" aria-labelledby="input-title">
-        <div class="panel-heading"><span class="section-icon"><i data-icon="file"></i></span><h2 id="input-title">录入错题</h2></div>
-        <form id="case-form">
-          <div class="field-heading"><label for="question">题目内容</label><button type="button" class="text-button" id="pick-case"><i data-icon="library"></i>载入案例</button></div>
-          <textarea id="question" rows="3" maxlength="4000" placeholder="输入原题，保留题目中的条件和单位。" required></textarea>
-          <div class="field-heading"><label for="answer">你的作答</label></div>
-          <textarea id="answer" rows="2" maxlength="4000" placeholder="写下答案，也可以附上当时的解题步骤。" required></textarea>
-          <p class="form-tip"><i data-icon="bulb"></i>写下中间步骤，能让错因更容易定位。</p>
-          <p id="form-message" class="form-message" role="status" hidden></p>
-          <button type="submit" id="diagnose" class="primary-button"><i data-icon="scan"></i><span>开始诊断</span></button>
-        </form>
-      </section>
-      <section id="graph-panel" class="graph-panel" aria-labelledby="graph-title">
-        <div class="graph-header"><div class="panel-heading"><span class="graph-heading-icon"><i data-icon="network"></i></span><h2 id="graph-title">知识依赖图谱</h2></div>
-          <div class="graph-actions"><span id="graph-badge" class="graph-badge">案例预览</span><button id="expand-map" class="icon-button" aria-label="放大知识依赖图谱" title="放大图谱"><i data-icon="maximize"></i></button></div>
-        </div>
-        <div class="map-stage" id="map-stage"></div>
-        <div class="graph-bottom"><div class="legend" aria-label="图例"><span><b class="foundation-dot"></b>前置知识</span><span><b class="gap-dot"></b>疑似漏洞</span><span><b class="target-dot"></b>题目目标</span></div><span class="graph-hint"><i data-icon="pointer"></i>点击节点查看</span></div>
-      </section>
-    </div>
-    <section class="report-section" id="report" aria-labelledby="report-title">
-      <div class="report-heading"><div class="report-heading-title"><i data-icon="report"></i><h2 id="report-title">诊断报告</h2></div><span id="report-source" class="report-source">案例预览</span></div>
-      <div id="report-content"></div>
-    </section>
-  </main>
-  <dialog id="sheet" aria-labelledby="sheet-title"><div class="sheet-header"><h2 id="sheet-title"></h2><button id="close-sheet" class="close-button" aria-label="关闭"><i data-icon="close"></i></button></div><div id="sheet-body"></div></dialog>
-  <div id="sr-feedback" class="sr-only" role="status" aria-live="polite"></div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>知隙 Knowledge Detective — AI 知识漏洞侦探</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
