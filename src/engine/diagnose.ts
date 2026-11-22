@@ -17,99 +17,117 @@ interface QuestionRule {
 }
 
 const rules: Record<string, QuestionRule> = {
-  'negative-power-parentheses': {
-    targetNodeId: 'negative-power',
-    correctAnswers: ['9'],
-    correctEvidence: '(-3)² = (-3) × (-3) = 9，两个负数相乘结果为正。',
-    errorPattern: {
-      answers: ['-9'],
-      weakNodeId: 'negative-power',
-      reason: '可能混淆了负数平方与平方前的负号',
-      evidence: '错答 -9 与把 (-3)² 误读为 -(3²) 的结果一致；正确展开应为 (-3) × (-3) = 9。仅凭最终答案仍需结合解题过程确认。',
-      steps: [
-        '先复习正负数与有理数乘法，确认 (-3) × (-3) = 9。',
-        '复习乘方的意义，指出 (-3)² 的底数是 -3、指数是 2。',
-        '对比 (-3)² 与 -3²，重做原题并验算结果。',
-      ],
-    },
-  },
-  'distributive-expression': {
-    targetNodeId: 'distributive-property',
-    correctAnswers: ['2x+6', '2*x+6', '6+2x', '6+2*x'],
-    correctEvidence: '括号外的 2 分别乘 x 和 3，得到 2x+6；交换相加的两项也得到等价结果。',
-    errorPattern: {
-      answers: ['2x+3', '2*x+3'],
-      weakNodeId: 'distributive-property',
-      reason: '可能不完整使用了分配律，漏乘括号内的常数项',
-      evidence: '如果括号外的 2 只乘 x、没有乘 3，就会得到 2x+3，与本次错答吻合。仅凭最终答案仍需结合展开过程确认。',
-      steps: [
-        '先复习有理数乘法和分配律，把 2 分别乘 x 与 3。',
-        '练习化简 3(y+4)，写出 3y+12，并检查两项都乘了 3。',
-        '重做原题，取 x=1 比较 2(x+3) 与 2x+6，确认两式相等。',
-      ],
-    },
-  },
-  'fraction-add': {
-    targetNodeId: 'fraction-addition',
-    correctAnswers: ['5/6'],
-    correctEvidence: '1/2=3/6，1/3=2/6，所以 1/2+1/3=3/6+2/6=5/6。',
-    errorPattern: {
-      answers: ['2/5'],
-      weakNodeId: 'common-denominator',
-      reason: '可能没有理解异分母分数相加前需要通分',
-      evidence: '把分子 1+1、分母 2+3 分别相加会恰好得到 2/5，与本次错答吻合；这提示可能未统一分数单位，仍需结合过程确认。',
-      steps: [
-        '复习分数基本性质，把 1/2 和 1/3 分别改写为 3/6 和 2/6。',
-        '练习 1/3+1/4，先找公分母 12，再把分子相加。',
-        '重做原题，并检查结果 5/6 是否大于原来的两个加数。',
-      ],
-    },
-  },
-  'linear-equation-basic': {
-    targetNodeId: 'linear-equation',
-    correctAnswers: ['4', 'x=4'],
-    correctEvidence: '两边同时减 5 得 2x=8，再同时除以 2 得 x=4；代回原方程，两边均为 13。',
-    errorPattern: {
-      answers: ['8', 'x=8'],
-      weakNodeId: 'linear-equation',
-      reason: '可能在移项后忘记除以未知数的系数',
-      evidence: '两边减 5 后是 2x=8；如果直接把 8 当作 x 的值，就会得到本次错答。该错误路径能解释答案，但仍需结合解题步骤确认。',
-      steps: [
-        '复习等式基本性质，两边同时减 5，保留等式 2x=8。',
-        '练习解 3x+2=11，最后两边同时除以 3，把未知数系数化为 1。',
-        '重做原题，把 x=4 代入原方程，验证等式两边都是 13。',
-      ],
-    },
-  },
-  'function-value': {
+  'function-negative-input': {
     targetNodeId: 'function-value',
-    correctAnswers: ['7', 'f(3)=7'],
-    correctEvidence: '把 x=3 代入整个解析式，f(3)=2×3+1=7，常数项 +1 不能遗漏。',
+    correctAnswers: ['6', 'f(-1)=6'],
+    correctEvidence: 'f(-1)=(-1)²-2×(-1)+3=1+2+3=6，代入后 -2x 的值为 +2。',
     errorPattern: {
-      answers: ['6', 'f(3)=6'],
+      answers: ['2', 'f(-1)=2'],
       weakNodeId: 'function-value',
-      reason: '可能在函数代入后遗漏了常数项',
-      evidence: '只计算 2×3 而不加常数项 1，恰好得到 6，与本次错答吻合。仅凭最终答案仍需结合代入过程确认。',
+      reason: '负数代入函数时，可能没有正确处理一次项的符号',
+      evidence: '如果代入 x=-1 后仍把 -2x 算成 -2，就会得到 1-2+3=2，与本次错答吻合。该模式只是错因假设，仍需结合代入过程确认。',
       steps: [
-        '复习函数概念，说明 f(3) 是把 x=3 代入整个解析式。',
-        '练习已知 g(x)=3x-2 求 g(2)，保留常数项并得到 4。',
-        '重做原题，完整写出 f(3)=2×3+1=7，再检查每一项。',
+        '复习函数值求解，把 x=-1 用括号代入解析式的每一个 x。',
+        '单独计算 -2×(-1)=+2，再按顺序合并 1+2+3。',
+        '追问：若 g(x)=x²-4x+1，求 g(-2)，并写出 -4x 代入后的符号。',
       ],
     },
   },
-  'negative-power-precedence': {
-    targetNodeId: 'operation-precedence',
-    correctAnswers: ['-9'],
-    correctEvidence: '原式没有括号，应先计算 3²=9，再取相反数，所以 -3²=-9。',
+  'quadratic-equation-roots': {
+    targetNodeId: 'quadratic-equation',
+    correctAnswers: [
+      'x=2,x=3',
+      'x=3,x=2',
+      '2,3',
+      '3,2',
+      'x1=2,x2=3',
+      'x1=3,x2=2',
+      '{2,3}',
+      '{3,2}',
+    ],
+    correctEvidence: 'x²-5x+6=(x-2)(x-3)，所以 x=2 或 x=3；两根之和为 5、两根之积为 6。',
     errorPattern: {
-      answers: ['9'],
-      weakNodeId: 'operation-precedence',
-      reason: '可能没有理解乘方与负号的运算优先级',
-      evidence: '把原式误当成 (-3)² 会得到 9，与本次错答吻合；原式的底数是 3，负号应在乘方之后处理，仍需结合过程确认。',
+      answers: [
+        'x=-2,x=-3',
+        'x=-3,x=-2',
+        '-2,-3',
+        '-3,-2',
+        'x1=-2,x2=-3',
+        'x1=-3,x2=-2',
+        '{-2,-3}',
+        '{-3,-2}',
+      ],
+      weakNodeId: 'quadratic-equation',
+      reason: '一元二次方程求根时，可能混淆了因式分解中的符号',
+      evidence: '把原式误分解为 (x+2)(x+3) 会得到 -2、-3，但展开后是 x²+5x+6，并非原多项式。错答与该路径吻合，仍需结合分解步骤确认。',
       steps: [
-        '按路径复习乘方意义与负数乘方，区分底数 3 和底数 -3。',
-        '对比 (-3)²=9 与 -3²=-(3²)=-9，标出两式的底数。',
-        '重做原题，再计算 -2² 和 (-2)²，检查是否掌握运算顺序。',
+        '复习因式分解，寻找和为 -5、积为 6 的两个数 -2 和 -3。',
+        '写出 (x-2)(x-3)，重新展开检查是否等于 x²-5x+6。',
+        '追问：用因式分解求 x²-7x+12=0 的根，并用两根之和、之积检查。',
+      ],
+    },
+  },
+  'same-base-powers': {
+    targetNodeId: 'power-rules',
+    correctAnswers: ['a^7'],
+    correctEvidence: '同底数幂相乘，底数不变、指数相加：a³·a⁴=a^(3+4)=a^7。',
+    errorPattern: {
+      answers: ['a^12'],
+      weakNodeId: 'power-rules',
+      reason: '同底数幂相乘时，可能把指数相加误用为指数相乘',
+      evidence: '指数 3×4=12 恰好得到 a^12；但 a³·a⁴ 表示 3 个 a 与 4 个 a 相乘，共 7 个 a。仅凭结果仍需结合列式确认。',
+      steps: [
+        '复习幂的意义，把 a³·a⁴ 展开为 (a·a·a)·(a·a·a·a)。',
+        '归纳同底数幂乘法法则：底数不变，指数相加，而不是相乘。',
+        '追问：计算 a²·a⁵，并用展开式解释为什么结果是 a^7。',
+      ],
+    },
+  },
+  'logarithm-evaluation': {
+    targetNodeId: 'log-definition',
+    correctAnswers: ['3', 'log_2(8)=3', 'log2(8)=3', 'log28=3'],
+    correctEvidence: '设 log₂8=x，则 2^x=8=2³，所以 x=3。',
+    errorPattern: {
+      answers: ['4', 'log_2(8)=4', 'log2(8)=4', 'log28=4'],
+      weakNodeId: 'log-definition',
+      reason: '对数求值时，可能把对数误解为真数除以底数',
+      evidence: '8÷2=4 与本次错答吻合；但 log₂8 要寻找的是“2 的多少次方等于 8”，不是做除法。该解释仍需结合转化步骤确认。',
+      steps: [
+        '复习对数定义，把 log₂8=x 转化为指数式 2^x=8。',
+        '将 8 写成 2³，比较底数相同的指数得到 x=3。',
+        '追问：计算 log₃9，先写出对应的指数式，再给出结果。',
+      ],
+    },
+  },
+  'arithmetic-sequence-term': {
+    targetNodeId: 'arithmetic-sequence',
+    correctAnswers: ['11', 'a5=11'],
+    correctEvidence: '等差数列通项为 aₙ=a₁+(n-1)d，所以 a₅=3+(5-1)×2=11。',
+    errorPattern: {
+      answers: ['13', 'a5=13'],
+      weakNodeId: 'arithmetic-sequence',
+      reason: '使用等差数列通项时，可能把间隔数 n-1 误算为 n',
+      evidence: '直接计算 3+5×2 会得到 13，与本次错答吻合；从第 1 项到第 5 项只有 4 个公差间隔。仍需结合项数计算过程确认。',
+      steps: [
+        '复习数列项与序号，逐项写出 3、5、7、9、11，观察四个间隔。',
+        '使用 aₙ=a₁+(n-1)d，代入 a₁=3、n=5、d=2。',
+        '追问：等差数列首项为 4、公差为 3，求第 4 项，并说明有几个公差间隔。',
+      ],
+    },
+  },
+  'classical-probability-coins': {
+    targetNodeId: 'classical-probability',
+    correctAnswers: ['1/2', '0.5', '50%'],
+    correctEvidence: '样本空间为 {正正, 正反, 反正, 反反}，四个结果等可能，其中两个恰好一枚正面，概率为 2/4=1/2。',
+    errorPattern: {
+      answers: ['1/3'],
+      weakNodeId: 'classical-probability',
+      reason: '求古典概率时，可能把不等可能的正面个数当作等可能基本结果',
+      evidence: '把“0、1、2 枚正面”三种情况直接视为等可能，会得到 1/3；但“恰好一枚正面”包含正反、反正两个基本结果。该假设需结合样本空间确认。',
+      steps: [
+        '复习样本空间，按顺序列出正正、正反、反正、反反四个等可能结果。',
+        '使用古典概率公式，有利结果为 2 个，全部结果为 4 个。',
+        '追问：掷两枚公平硬币，至少出现一枚正面的概率是多少？先列样本空间再计算。',
       ],
     },
   },
@@ -125,14 +143,34 @@ for (const edge of knowledgeEdges) {
   }
 }
 
+const superscriptDigits: Record<string, string> = {
+  '⁰': '0',
+  '¹': '1',
+  '²': '2',
+  '³': '3',
+  '⁴': '4',
+  '⁵': '5',
+  '⁶': '6',
+  '⁷': '7',
+  '⁸': '8',
+  '⁹': '9',
+};
+
 function normalizeAnswer(answer: string): string {
   return answer
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (digits) => {
+      const exponent = [...digits].map((digit) => superscriptDigits[digit]).join('');
+      return `^${exponent}`;
+    })
     .normalize('NFKC')
     .toLowerCase()
     .replace(/[−–—]/g, '-')
     .replace(/[×·]/g, '*')
+    .replace(/\*\*/g, '^')
+    .replace(/[；;、]/g, ',')
+    .replace(/或/g, ',')
     .replace(/\s+/g, '')
-    .replace(/^(?:答案|结果|答)(?:是|为)?[:=]?/, '')
+    .replace(/^(?:答案|结果|答|解集)(?:是|为)?[:=]?/, '')
     .replace(/^=/, '')
     .replace(/^\+(?=\d)/, '');
 }
@@ -175,7 +213,7 @@ function correctResult(rule: QuestionRule): DiagnosisResult {
     steps: [
       '保留本次解题过程，作为同类题的复习样例。',
       '改变题目中的一个数字再做一遍，检查方法是否稳定。',
-      '继续用代入或逆运算验算，本题不需要生成薄弱知识点。',
+      '继续用逆运算或代回验算，本题不需要生成薄弱知识点。',
     ],
     confidence: 'high',
   };
@@ -231,6 +269,6 @@ export function diagnose(questionId: string, studentAnswer: string): DiagnosisRe
     weakNodeIds,
     learningPathIds: buildLearningPath(weakNodeIds),
     steps: [...pattern.steps],
-    confidence: 'high',
+    confidence: 'medium',
   };
 }
