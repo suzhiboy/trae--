@@ -135,6 +135,15 @@ describe('不确定性与输入边界', () => {
     expect(result.confidence).toBe('low');
     expect(result.weakNodeIds).toEqual([]);
   });
+
+  it.each([undefined, null])('运行时缺失答案 %s 不会导致诊断崩溃', (answer) => {
+    const result = diagnose('function-negative-input', answer as unknown as string);
+
+    expect(result.isCorrect).toBe(false);
+    expect(result.reason).toBe('暂时无法准确判断错误根因');
+    expect(result.confidence).toBe('low');
+    expect(result.weakNodeIds).toEqual([]);
+  });
 });
 
 describe('学习路径与高中知识依赖图', () => {

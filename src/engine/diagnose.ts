@@ -157,7 +157,7 @@ const superscriptDigits: Record<string, string> = {
 };
 
 function normalizeAnswer(answer: string): string {
-  return answer
+  return String(answer ?? '')
     .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (digits) => {
       const exponent = [...digits].map((digit) => superscriptDigits[digit]).join('');
       return `^${exponent}`;
