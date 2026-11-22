@@ -1,5 +1,7 @@
 import { BrainCircuit, ListChecks, PenLine, Zap } from 'lucide-react';
 import { questions } from '../data/knowledge';
+import { stemLatex } from '../data/highSchool';
+import { MixedMath } from './MathTex';
 
 interface Props {
   questionId: string | null;
@@ -84,13 +86,22 @@ export default function DiagnosisInput({
           <>
             <div className="mb-1 flex items-center gap-2">
               <span className="chip border-indigo-400/30 bg-indigo-400/10 text-indigo-300">
-                {current.subject}
+                高中数学
+              </span>
+              <span className="chip border-cyan-400/30 bg-cyan-400/10 text-cyan-300">
+                衔接诊断题
               </span>
               <span className="chip border-slate-600/40 bg-slate-800/60 text-slate-400">
                 {current.difficulty}
               </span>
             </div>
-            <p className="font-mono text-sm leading-relaxed text-slate-100">{current.stem}</p>
+            <div className="text-sm leading-relaxed text-slate-100">
+              {stemLatex[current.id] ? (
+                <MixedMath text={stemLatex[current.id]} />
+              ) : (
+                <span className="font-mono">{current.stem}</span>
+              )}
+            </div>
           </>
         ) : (
           <p className="flex h-full items-center justify-center text-sm text-slate-600">
