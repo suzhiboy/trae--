@@ -190,8 +190,8 @@ export const nodeExtras: Record<string, NodeExtra> = {
     tips: ['练习 3x+2=11，最后把未知数系数化为 1', '把解代回原方程，验证两边相等'],
   },
   'function-value': {
-    latex: 'f(3)=2\\times 3+1=7',
-    tips: ['求 g(2)（g(x)=3x-2），注意保留常数项', '完整写出代入过程，再检查每一项'],
+    latex: 'f(-1)=(-1)^2-2\\times(-1)+3=6',
+    tips: ['把 x=-1 用括号代入解析式的每一个 x', '单独计算 -2×(-1)=+2，再合并各项'],
   },
 
   /* 高中模块节点 */
@@ -220,12 +220,12 @@ export const nodeExtras: Record<string, NodeExtra> = {
 
 /* ---------- 题干 LaTeX 展示覆盖（不修改题库，仅前端渲染层） ---------- */
 export const stemLatex: Record<string, string> = {
-  'negative-power-parentheses': '计算 $(-3)^2$',
-  'distributive-expression': '化简 $2(x+3)$',
-  'fraction-add': '计算 $\\dfrac{1}{2}+\\dfrac{1}{3}$',
-  'linear-equation-basic': '解方程 $2x+5=13$',
-  'function-value': '已知 $f(x)=2x+1$，求 $f(3)$',
-  'negative-power-precedence': '计算 $-3^2$',
+  'function-negative-input': '已知 $f(x)=x^2-2x+3$，求 $f(-1)$',
+  'quadratic-equation-roots': '解方程 $x^2-5x+6=0$',
+  'same-base-powers': '计算 $a^3\\cdot a^4$（$a\\neq 0$）',
+  'logarithm-evaluation': '计算 $\\log_2 8$',
+  'arithmetic-sequence-term': '等差数列 $\\{a_n\\}$ 中，$a_1=3$，公差 $d=2$，求 $a_5$',
+  'classical-probability-coins': '掷两枚公平硬币，求恰好出现一枚正面的概率',
 };
 
 /* ---------- 追问验证：薄弱节点 → 可再次验证的题目 ---------- */

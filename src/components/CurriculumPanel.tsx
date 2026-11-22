@@ -1,79 +1,43 @@
-import { GraduationCap, Shapes } from 'lucide-react';
 import { gradeLevels, hsModules } from '../data/highSchool';
 import { MathTex } from './MathTex';
 
-/** 首页顶部：年级标识 + 高中知识模块总览 */
 export default function CurriculumPanel() {
   return (
-    <div className="flex flex-col gap-4">
-      {/* 年级标识 */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {gradeLevels.map((g) => (
-          <div
-            key={g.id}
-            className={`glass relative overflow-hidden bg-gradient-to-br p-4 ${g.accent.split(' ').slice(0, 2).join(' ')}`}
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-slate-900/60 ${g.accent.split(' ').slice(3).join(' ')}`}
-              >
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-display text-lg font-extrabold text-white">{g.name}</span>
-                  <span className="truncate text-[11px] text-slate-400">{g.stage}</span>
-                </div>
-                <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{g.focus}</p>
-              </div>
+    <section aria-labelledby="curriculum-title">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="curriculum-title" className="text-2xl font-bold tracking-tight text-ink">高中数学课程总览</h2>
+          <p className="mt-1 text-sm text-muted">诊断围绕具体错答展开，课程结构用于定位知识依赖。</p>
+        </div>
+        <span className="text-sm text-muted">3 个年级 · 6 大核心模块</span>
+      </div>
+
+      <div className="grid border-y border-line md:grid-cols-3 md:divide-x md:divide-line">
+        {gradeLevels.map((grade) => (
+          <div key={grade.id} className="border-b border-line py-4 last:border-b-0 md:border-b-0 md:px-5 md:first:pl-0 md:last:pr-0">
+            <div className="flex items-baseline gap-3">
+              <h3 className="text-lg font-bold text-ink">{grade.name}</h3>
+              <span className="text-xs text-muted">{grade.stage}</span>
             </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {g.modules.map((m) => (
-                <span
-                  key={m}
-                  className="rounded-full border border-slate-600/40 bg-slate-900/60 px-2 py-0.5 text-[11px] text-slate-300"
-                >
-                  {m}
-                </span>
-              ))}
-            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{grade.focus}</p>
           </div>
         ))}
       </div>
 
-      {/* 知识模块 */}
-      <div className="glass relative overflow-hidden p-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
-        <div className="section-title mb-3">
-          <Shapes className="h-4 w-4 text-cyan-300" />
-          高中数学知识模块
-          <span className="ml-auto text-[11px] font-normal normal-case tracking-normal text-slate-500">
-            覆盖 6 大核心模块 · 点击图谱节点可查看复习建议
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
-          {hsModules.map((m) => (
-            <div
-              key={m.id}
-              className="group rounded-xl border border-line bg-slate-900/40 px-3.5 py-3 transition-all duration-200 hover:border-cyan-400/40 hover:shadow-glow"
-            >
-              <div className="mb-1 flex items-center gap-2">
-                <span className="text-sm font-bold text-white group-hover:text-cyan-200">
-                  {m.name}
-                </span>
-                <span className="chip border-slate-600/40 bg-slate-800/60 px-1.5 text-[10px] text-slate-400">
-                  {m.grade}
-                </span>
-              </div>
-              <p className="mb-1.5 line-clamp-1 text-[11px] text-slate-500">{m.desc}</p>
-              <div className="overflow-x-auto rounded-lg bg-slate-950/60 px-2 py-1 text-cyan-200/90">
-                <MathTex tex={m.formula} className="text-[13px]" />
-              </div>
+      <div className="mt-6 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+        {hsModules.map((module) => (
+          <div key={module.id} className="bg-canvas p-4 sm:p-5">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <h3 className="text-base font-bold text-ink">{module.name}</h3>
+              <span className="text-xs text-muted">{module.grade}</span>
             </div>
-          ))}
-        </div>
+            <p className="mb-3 text-sm text-muted">{module.desc}</p>
+            <div className="overflow-x-auto border-t border-line pt-3 text-base text-ink">
+              <MathTex tex={module.formula} />
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }

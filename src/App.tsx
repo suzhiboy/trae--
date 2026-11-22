@@ -1,153 +1,61 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import TopNav from './components/TopNav';
-import Sidebar, { type ViewKey } from './components/Sidebar';
-import DiagnosisInput from './components/DiagnosisInput';
-import ReportPanel from './components/ReportPanel';
-import KnowledgeGraph from './components/KnowledgeGraph';
-import LearningPath from './components/LearningPath';
-import HistoryPanel from './components/HistoryPanel';
-import CurriculumPanel from './components/CurriculumPanel';
-import { diagnose } from './engine/diagnose';
-import { questions } from './data/knowledge';
-import type { DiagnosisResult } from './types';
-
-export interface HistoryItem {
-  id: string;
-  time: string;
-  questionStem: string;
-  studentAnswer: string;
-  isCorrect: boolean;
-  weakCount: number;
-}
-
-const HISTORY_KEY = 'kd-history';
-
-function loadHistory(): HistoryItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') as HistoryItem[];
-  } catch {
-    return [];
-  }
-}
+import Loader from './components/Loader';
+import Menu from './components/Menu';
+import Hero from './components/Hero';
+import Highlights from './components/Highlights';
+import FeaturedWorks from './components/FeaturedWorks';
+import Expertise from './components/Expertise';
+import Methodology from './components/Methodology';
+import Footer from './components/Footer';
+import CustomCursor from './components/CustomCursor';
+import { useLenis } from './hooks/useLenis';
+import { initReveals } from './animations/initText';
+import { ScrollTrigger } from './animations/motion';
 
 export default function App() {
-  const [view, setView] = useState<ViewKey>('diagnose');
-  const [questionId, setQuestionId] = useState<string | null>(null);
-  const [answer, setAnswer] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<DiagnosisResult | null>(null);
-  const [resultAnswer, setResultAnswer] = useState('');
-  const [resultQuestionId, setResultQuestionId] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
-  const mainRef = useRef<HTMLElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const complete = useCallback(() => setLoaded(true), []);
+  const lenis = useLenis(loaded);
 
   useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
-  }, [history]);
+    document.body.style.overflow = loaded ? '' : 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [loaded]);
 
-  const handleDiagnose = useCallback((qId: string, ans: string, stem: string) => {
-    setAnalyzing(true);
-    setResult(null);
-    // 分析动画约 1 秒后输出诊断结果
-    window.setTimeout(() => {
-      const r = diagnose(qId, ans);
-      setResult(r);
-      setResultAnswer(ans);
-      setResultQuestionId(qId);
-      setAnalyzing(false);
-      setHistory((h) => [
-        {
-          id: `${Date.now()}`,
-          time: new Date().toLocaleString('zh-CN', { hour12: false }),
-          questionStem: stem,
-          studentAnswer: ans,
-          isCorrect: r.isCorrect,
-          weakCount: r.weakNodeIds.length,
-        },
-        ...h,
-      ]);
-    }, 1000);
-  }, []);
+  useEffect(() => {
+    if (!loaded || !root.current) return;
+    const cleanup = initReveals(root.current);
+    let disposed = false;
+    document.fonts.ready.then(() => { if (!disposed) ScrollTrigger.refresh(); });
+    return () => { disposed = true; cleanup(); };
+  }, [loaded]);
 
-  const showComposite = view === 'diagnose';
-
-  // 追问验证：切换到追问题，回到诊断输入处重新作答
-  const handleFollowUp = useCallback((qId: string) => {
-    setQuestionId(qId);
-    setAnswer('');
-    setResult(null);
-    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  useEffect(() => {
+    let frame = 0;
+    const onResize = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => ScrollTrigger.refresh());
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', onResize); };
   }, []);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <TopNav demoActive={result !== null || analyzing} />
-      <div className="flex min-h-0 flex-1">
-        <Sidebar active={view} onChange={setView} />
-
-        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
-          {showComposite && (
-            <div className="flex flex-col gap-5">
-              <CurriculumPanel />
-              <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-                {/* 左列：输入 + 报告 */}
-                <div className="flex flex-col gap-5 xl:col-span-5">
-                  <DiagnosisInput
-                    questionId={questionId}
-                    answer={answer}
-                    analyzing={analyzing}
-                    onQuestionChange={(id) => {
-                      setQuestionId(id);
-                      setResult(null);
-                    }}
-                    onAnswerChange={setAnswer}
-                    onDiagnose={handleDiagnose}
-                  />
-                  <ReportPanel
-                    result={result}
-                    analyzing={analyzing}
-                    studentAnswer={resultAnswer}
-                    correctAnswer={
-                      questions.find((q) => q.id === resultQuestionId)?.correctAnswer ?? ''
-                    }
-                    questionId={resultQuestionId}
-                    onFollowUp={handleFollowUp}
-                  />
-                </div>
-
-                {/* 右列：知识图谱 + 学习路径 */}
-                <div className="flex flex-col gap-5 xl:col-span-7">
-                  <div className="h-[420px] xl:h-[480px]">
-                    <KnowledgeGraph result={result} analyzing={analyzing} />
-                  </div>
-                  <LearningPath result={result} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {view === 'graph' && (
-            <div className="h-full min-h-[560px]">
-              <KnowledgeGraph result={result} analyzing={analyzing} full />
-            </div>
-          )}
-
-          {view === 'path' && (
-            <div className="mx-auto max-w-5xl">
-              <LearningPath result={result} expanded />
-            </div>
-          )}
-
-          {view === 'history' && (
-            <div className="mx-auto max-w-4xl">
-              <HistoryPanel
-                history={history}
-                onClear={() => setHistory([])}
-              />
-            </div>
-          )}
+    <>
+      {!loaded && <Loader onComplete={complete} />}
+      <CustomCursor />
+      <Menu lenis={lenis} />
+      <div ref={root}>
+        <main>
+          <Hero loaded={loaded} />
+          <Highlights />
+          <FeaturedWorks />
+          <Expertise />
+          <Methodology />
         </main>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 }

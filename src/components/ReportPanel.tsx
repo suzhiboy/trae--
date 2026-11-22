@@ -1,10 +1,8 @@
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   FileSearch,
   Fingerprint,
-  GitBranch,
   Lightbulb,
   MessageCircleQuestion,
 } from 'lucide-react';
@@ -12,30 +10,12 @@ import type { DiagnosisResult, Question } from '../types';
 import { knowledgeNodes, questions } from '../data/knowledge';
 import { relatedQuestionIds, stemLatex } from '../data/highSchool';
 import { MixedMath } from './MathTex';
-import { useEffect, useState } from 'react';
 
-const confidenceMap = {
-  high: { label: '高置信度', value: 92, cls: 'text-cyan-300', bar: 'from-cyan-400 to-emerald-300' },
-  medium: { label: '中置信度', value: 74, cls: 'text-violet-300', bar: 'from-violet-400 to-cyan-400' },
-  low: { label: '低置信度', value: 48, cls: 'text-slate-300', bar: 'from-slate-400 to-slate-300' },
+const confidenceLabels = {
+  high: '高置信度',
+  medium: '中置信度',
+  low: '低置信度',
 } as const;
-
-function useAnimatedNumber(target: number, active: boolean) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min((t - start) / 900, 1);
-      setV(Math.round(target * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, active]);
-  return v;
-}
 
 export default function ReportPanel({
   result,
@@ -52,225 +32,140 @@ export default function ReportPanel({
   questionId: string | null;
   onFollowUp?: (questionId: string) => void;
 }) {
-  const conf = result ? confidenceMap[result.confidence] : null;
-  const confValue = useAnimatedNumber(conf?.value ?? 0, !!result);
-
-  // 追问验证：围绕薄弱节点换一题，让学生再次作答以验证漏洞
-  const followUps: Question[] =
-    result && !result.isCorrect
-      ? [
-          ...new Set(result.weakNodeIds.flatMap((id) => relatedQuestionIds[id] ?? [])),
-        ]
-          .filter((id) => id !== questionId)
-          .map((id) => questions.find((q) => q.id === id))
-          .filter((q): q is Question => !!q)
-          .slice(0, 2)
-      : [];
+  const followUps: Question[] = result && !result.isCorrect
+    ? [...new Set(result.weakNodeIds.flatMap((id) => relatedQuestionIds[id] ?? []))]
+        .filter((id) => id !== questionId)
+        .map((id) => questions.find((question) => question.id === id))
+        .filter((question): question is Question => !!question)
+        .slice(0, 2)
+    : [];
 
   return (
-    <section className="glass relative flex-1 overflow-hidden p-5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/60 to-transparent" />
-
-      <div className="section-title mb-4">
-        <FileSearch className="h-4 w-4 text-violet-300" />
-        知识漏洞报告
-        {result && result.source === 'rules' && (
-          <span className="chip ml-auto border-amber-400/40 bg-amber-400/10 text-amber-300">
-            <AlertTriangle className="h-3 w-3" />
-            规则诊断演示
-          </span>
-        )}
-        {result && result.source === 'ai' && (
-          <span className="chip ml-auto border-cyan-400/40 bg-cyan-400/10 text-cyan-300">
-            AI 模型分析
+    <section className="panel mt-5 p-5 sm:p-6" aria-labelledby="report-title" aria-live="polite">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+        <h2 id="report-title" className="section-title">
+          <FileSearch className="h-5 w-5" strokeWidth={1.7} />
+          诊断结论
+        </h2>
+        {result && (
+          <span className={`chip ${result.source === 'rules' ? 'border-line bg-white/60 text-muted' : 'border-ink text-ink'}`}>
+            {result.source === 'rules' ? '规则诊断' : 'AI 诊断'}
           </span>
         )}
       </div>
 
-      {/* 空态 / 分析态 */}
       {!result && !analyzing && (
-        <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-slate-900/60">
-            <Fingerprint className="h-7 w-7 text-slate-600" />
+        <div className="flex min-h-[136px] items-center gap-3 border-t border-line pt-5 text-muted">
+          <Fingerprint className="h-8 w-8 shrink-0" strokeWidth={1.4} />
+          <div>
+            <p className="text-sm font-medium text-ink">等待一次作答</p>
+            <p className="mt-1 text-sm leading-relaxed">提交后将在这里说明可能原因与推断依据。</p>
           </div>
-          <p className="text-sm text-slate-500">
-            等待侦探出手
-            <br />
-            <span className="text-xs text-slate-600">提交错误答案后，这里会生成漏洞报告</span>
-          </p>
         </div>
       )}
 
-      {analyzing && (
-        <div className="flex min-h-[220px] flex-col items-center justify-center gap-4">
-          <div className="relative h-16 w-16">
-            <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-cyan-400 border-r-violet-400" />
-            <div className="absolute inset-2 animate-spin rounded-full border-2 border-transparent border-b-indigo-400 [animation-direction:reverse] [animation-duration:1.4s]" />
-            <Fingerprint className="absolute inset-0 m-auto h-6 w-6 animate-pulse text-cyan-300" />
-          </div>
-          <div className="space-y-1.5 text-center">
-            <p className="animate-pulse text-sm font-medium text-cyan-200">正在扫描知识依赖链…</p>
-            <p className="font-mono text-[11px] text-slate-500">
-              tracing prerequisite graph · matching error patterns
-            </p>
-          </div>
-          <div className="h-1 w-48 overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full w-full animate-shimmer bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent bg-[length:200%_100%]" />
-          </div>
-        </div>
-      )}
+      {analyzing && <p className="min-h-[136px] border-t border-line pt-5 text-sm text-muted">正在匹配本地诊断规则…</p>}
 
       {result && (
-        <div className="animate-fade-up space-y-4">
-          {/* 答案对比 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-3">
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-emerald-300">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+        <div className="result-enter space-y-5">
+          <div className="grid grid-cols-2 gap-3 border-y border-line py-4">
+            <div>
+              <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted">
+                <CheckCircle2 className="h-4 w-4" strokeWidth={1.7} />
                 正确答案
               </div>
-              <p className="font-mono text-lg font-semibold text-emerald-200">
-                {correctAnswer || '—'}
-              </p>
+              <p className="break-words font-mono text-xl font-semibold text-ink">{correctAnswer || '—'}</p>
             </div>
-            <div
-              className={`rounded-xl border p-3 ${
-                result.isCorrect
-                  ? 'border-emerald-400/25 bg-emerald-400/5'
-                  : 'border-danger/30 bg-danger/5'
-              }`}
-            >
-              <div
-                className={`mb-1 flex items-center gap-1.5 text-[11px] font-medium ${
-                  result.isCorrect ? 'text-emerald-300' : 'text-danger'
-                }`}
-              >
-                <AlertTriangle className="h-3.5 w-3.5" />
+            <div className="border-l border-line pl-4">
+              <div className={`mb-1 flex items-center gap-1.5 text-xs font-medium ${result.isCorrect ? 'text-muted' : 'text-vermilion'}`}>
+                <AlertTriangle className="h-4 w-4" strokeWidth={1.7} />
                 学生答案
               </div>
-              <p
-                className={`font-mono text-lg font-semibold ${
-                  result.isCorrect ? 'text-emerald-200' : 'text-orange-300'
-                }`}
-              >
+              <p className={`break-words font-mono text-xl font-semibold ${result.isCorrect ? 'text-ink' : 'text-vermilion'}`}>
                 {studentAnswer}
               </p>
             </div>
           </div>
 
           {result.isCorrect ? (
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-4 text-sm text-emerald-200">
-              {result.reason} 继续保持！
+            <div className="space-y-3">
+              <div>
+                <h3 className="mb-1.5 text-sm font-bold text-ink">诊断结论</h3>
+                <p className="text-sm leading-relaxed text-muted">{result.reason}。</p>
+              </div>
+              <div>
+                <h3 className="mb-1.5 text-sm font-bold text-ink">核对依据</h3>
+                <p className="text-sm leading-relaxed text-muted">{result.evidence}</p>
+              </div>
             </div>
           ) : (
             <>
-              {/* 错误根因 */}
-              <div className="rounded-xl border border-danger/30 bg-gradient-to-br from-danger/10 to-transparent p-4">
-                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-danger">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  可能错误根因
-                </div>
-                <p className="text-sm leading-relaxed text-orange-100/90">{result.reason}</p>
-              </div>
-
-              {/* 判断依据 */}
-              <div className="rounded-xl border border-line bg-slate-900/40 p-4">
-                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Fingerprint className="h-3.5 w-3.5 text-cyan-300" />
-                  判断依据
-                </div>
-                <p className="text-sm leading-relaxed text-slate-400">{result.evidence}</p>
-              </div>
-
-              {/* 缺失前置知识 */}
               <div>
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <GitBranch className="h-3.5 w-3.5 text-violet-300" />
-                  缺失的前置知识
-                </div>
-                <div className="flex flex-wrap gap-2">
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-vermilion">
+                  <AlertTriangle className="h-4 w-4" strokeWidth={1.8} />
+                  可能原因
+                </h3>
+                <p className="text-[15px] font-medium leading-relaxed text-ink">{result.reason}</p>
+              </div>
+
+              <div className="border-t border-line pt-4">
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink">
+                  <Fingerprint className="h-4 w-4" strokeWidth={1.8} />
+                  推断依据
+                </h3>
+                <p className="text-sm leading-7 text-muted">{result.evidence}</p>
+              </div>
+
+              {result.weakNodeIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-muted">疑似薄弱</span>
                   {result.weakNodeIds.map((id) => {
-                    const n = knowledgeNodes.find((k) => k.id === id);
+                    const node = knowledgeNodes.find((item) => item.id === id);
                     return (
-                      <span
-                        key={id}
-                        className="chip border-danger/40 bg-danger/10 text-orange-300 shadow-glow-danger"
-                      >
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger" />
-                        {n?.label ?? id}
+                      <span key={id} className="chip border-vermilion bg-[#F8E8E1] text-vermilion">
+                        {node?.label ?? id}
                       </span>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* 置信度 */}
-              {conf && (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-300">诊断置信度</span>
-                    <span className={`font-mono font-semibold ${conf.cls}`}>
-                      {conf.label} · {confValue}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-                    <div
-                      className={`h-full rounded-full bg-gradient-to-r ${conf.bar} transition-all duration-1000 ease-out`}
-                      style={{ width: `${confValue}%` }}
-                    />
-                  </div>
                 </div>
               )}
 
-              {/* 建议补习顺序 */}
-              <div>
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-300" />
-                  建议补习顺序
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {result.learningPathIds.map((id, i) => {
-                    const n = knowledgeNodes.find((k) => k.id === id);
-                    return (
-                      <span key={id} className="flex items-center gap-1.5">
-                        {i > 0 && <ArrowRight className="h-3.5 w-3.5 text-slate-600" />}
-                        <span className="chip border-violet-400/40 bg-violet-400/10 font-mono text-violet-200">
-                          <span className="text-violet-400">{i + 1}.</span> {n?.label ?? id}
-                        </span>
-                      </span>
-                    );
-                  })}
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-xs">
+                <span className="text-muted">诊断置信度</span>
+                <span className={`font-semibold ${result.confidence === 'low' ? 'text-vermilion' : 'text-ink'}`}>
+                  {confidenceLabels[result.confidence]}
+                </span>
               </div>
 
-              {/* 追问验证 */}
-              {followUps.length > 0 && (
-                <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-4">
-                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                    <MessageCircleQuestion className="h-3.5 w-3.5 text-cyan-300" />
-                    追问验证 · 换一题确认是否真正掌握
+              {result.confidence === 'low' && (
+                <div className="rounded-md border border-vermilion bg-[#F8E8E1] p-3.5">
+                  <div className="mb-1 flex items-center gap-1.5 text-sm font-bold text-vermilion">
+                    <Lightbulb className="h-4 w-4" strokeWidth={1.8} />
+                    下一步
                   </div>
-                  <div className="flex flex-col gap-2">
-                    {followUps.map((q) => (
+                  <p className="text-sm leading-relaxed text-ink">
+                    补充至少一步中间计算后重新诊断。当前只提供复习方向，尚未确认具体知识点薄弱。
+                  </p>
+                </div>
+              )}
+
+              {followUps.length > 0 && (
+                <div className="border-t border-line pt-4">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink">
+                    <MessageCircleQuestion className="h-4 w-4" strokeWidth={1.8} />
+                    换一题验证
+                  </h3>
+                  <div className="space-y-2">
+                    {followUps.map((question) => (
                       <button
-                        key={q.id}
-                        onClick={() => onFollowUp?.(q.id)}
-                        className="flex items-center gap-2.5 rounded-lg border border-line bg-slate-900/50 px-3 py-2 text-left text-sm text-slate-300 transition-all hover:border-cyan-400/50 hover:text-cyan-200"
+                        key={question.id}
+                        onClick={() => onFollowUp?.(question.id)}
+                        className="w-full rounded-md border border-line bg-white/50 px-3 py-2.5 text-left text-sm text-ink hover:border-ink"
                       >
-                        <span className="chip shrink-0 border-cyan-400/40 bg-cyan-400/10 text-cyan-300">
-                          再来一题
-                        </span>
-                        {stemLatex[q.id] ? (
-                          <MixedMath text={stemLatex[q.id]} />
-                        ) : (
-                          <span className="font-mono">{q.stem}</span>
-                        )}
+                        {stemLatex[question.id] ? <MixedMath text={stemLatex[question.id]} /> : question.stem}
                       </button>
                     ))}
                   </div>
-                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                    当前结论由错答模式推断，点击追问题重新作答，可进一步验证漏洞是否真实存在。
-                  </p>
                 </div>
               )}
             </>

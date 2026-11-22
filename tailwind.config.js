@@ -9,12 +9,12 @@ export default {
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
-        abyss: '#05070f',
-        panel: '#0a0f1e',
-        line: 'rgba(120, 150, 255, 0.12)',
-        neon: '#22d3ee',
-        violetx: '#8b5cf6',
-        danger: '#fb6a4a',
+        canvas: '#F7F6F2',
+        ink: '#171717',
+        line: '#DDDAD2',
+        vermilion: '#B64329',
+        muted: '#6F6B63',
+        danger: '#B64329',
       },
       boxShadow: {
         glow: '0 0 24px rgba(34, 211, 238, 0.25)',
