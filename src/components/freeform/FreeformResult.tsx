@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, EyeOff, ShieldQuestion } from 'lucide-react';
 import { knowledgeNodes } from '../../data/knowledge';
 import { questionRules } from '../../data/practiceRules';
@@ -219,7 +219,15 @@ function RuleResult({ result, studentAnswer }: { result: FreeformRuleResult; stu
   );
 }
 
-function AiResult({ result, studentAnswer }: { result: FreeformAiDiagnosis; studentAnswer: string }) {
+function AiResult({
+  result,
+  studentAnswer,
+  variantPractice,
+}: {
+  result: FreeformAiDiagnosis;
+  studentAnswer: string;
+  variantPractice?: ReactNode;
+}) {
   const conclusion = conclusionCopy[result.verification.conclusion];
   const standardClaims = new Map(
     result.verification.claims
@@ -312,7 +320,18 @@ function AiResult({ result, studentAnswer }: { result: FreeformAiDiagnosis; stud
             <p className="freeform-empty">模型没有给出标准解法。</p>
           )}
 
-          <VariantCard variant={result.variant} />
+          {result.status === 'diagnosed' || result.status === 'process-error' ? (
+            variantPractice
+          ) : (
+            <div className="freeform-variant">
+              <div className="freeform-section-title"><span>变式验证</span></div>
+              <p>
+                {result.status === 'correct'
+                  ? '答案正确，本次不需要用变式验证。'
+                  : '错因尚未确认，暂不生成变式；先补充步骤或回答追问，再验证。'}
+              </p>
+            </div>
+          )}
         </section>
 
         <section className="freeform-result__col">
@@ -347,11 +366,13 @@ function AiResult({ result, studentAnswer }: { result: FreeformAiDiagnosis; stud
 export default function FreeformResult({
   result,
   studentAnswer,
+  variantPractice,
 }: {
   result: FreeformResultType;
   studentAnswer: string;
+  variantPractice?: ReactNode;
 }) {
   return result.source === 'rules'
     ? <RuleResult result={result} studentAnswer={studentAnswer} />
-    : <AiResult result={result} studentAnswer={studentAnswer} />;
+    : <AiResult result={result} studentAnswer={studentAnswer} variantPractice={variantPractice} />;
 }

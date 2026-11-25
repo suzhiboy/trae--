@@ -182,9 +182,14 @@ describe('变式收集：复算不通过就补充生成，最多两轮', () => {
     expect(result.exhausted).toBe(true);
   });
 
-  it('生成请求失败时向上抛出，由界面明确提示', async () => {
-    const request = vi.fn().mockRejectedValue(new Error('network'));
-    await expect(collectVerifiedVariants(request, { target: 2, maxRounds: 2 }))
-      .rejects.toThrow('network');
+  it('补充生成失败时保留已通过的题，并给出错误提示', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce([validOne])
+      .mockRejectedValueOnce(new Error('network'));
+    const result = await collectVerifiedVariants(request, { target: 2, maxRounds: 2 });
+
+    expect(result.verified).toHaveLength(1);
+    expect(result.requestError).toBe('network');
+    expect(result.exhausted).toBe(true);
   });
 });

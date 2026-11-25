@@ -128,8 +128,8 @@ export function parseFreeformAiResult(
   const reason = text(entry.reason, 400);
   const knowledgePoint = text(entry.knowledgePoint, 80);
   const singleVariant = parseVariant(entry.variant);
-  const variants = parseVariantList(entry.variants) ?? (singleVariant ? [singleVariant] : null);
-  const variant = singleVariant ?? variants?.[0] ?? null;
+  const variants = parseVariantList(entry.variants) ?? (singleVariant ? [singleVariant] : []);
+  const variant = singleVariant ?? variants[0] ?? { stem: '', answer: '' };
   const claims = parseClaims(entry.claims);
   if (
     correctAnswer === null
@@ -138,9 +138,6 @@ export function parseFreeformAiResult(
     || stepQuote === null
     || reason === null
     || knowledgePoint === null
-    || variant === null
-    || variants === null
-    || variants.length === 0
     || claims === null
   ) {
     return null;

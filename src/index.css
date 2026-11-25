@@ -866,6 +866,59 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .freeform-footer p { margin: 0; color: #777; font-size: 10px; line-height: 1.7; }
 .freeform-footer span { color: #777; font-size: 9px; white-space: nowrap; }
 
+/* ---------- 任意题变式：生成、复算、再诊断 ---------- */
+.freeform-variants { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.freeform-variants__intro { margin: 0 0 12px !important; color: #999 !important; font-size: 10px !important; line-height: 1.7 !important; }
+.freeform-variants__note { margin: 10px 0 0 !important; color: #d8a24a !important; font-size: 10px !important; line-height: 1.7 !important; }
+.freeform-variants > .practice-text-button { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }
+.freeform-variants > .practice-text-button svg { width: 12px; height: 12px; }
+.freeform-variant-practice { margin-top: 14px; padding: 15px; border: 1px solid var(--line); background: var(--bg); }
+.freeform-variant-practice__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.freeform-variant-practice__head > span:first-child { color: #777; font-size: 8px; letter-spacing: 0.1em; }
+.freeform-variant-practice__badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid rgba(158, 197, 165, 0.4); color: #9ec5a5; font-size: 8px; letter-spacing: 0.04em; }
+.freeform-variant-practice__badge svg { width: 11px; height: 11px; }
+.freeform-variant-practice__stem { margin: 0 0 7px !important; color: var(--white) !important; font-size: 13px !important; line-height: 1.8 !important; }
+.freeform-variant-practice__source { margin: 0 0 12px !important; color: #777 !important; font-size: 9px !important; line-height: 1.6 !important; }
+.freeform-variant-practice__form { display: grid; gap: 10px; }
+.freeform-variant-practice__form label { display: grid; gap: 5px; }
+.freeform-variant-practice__form label > span { color: #aaa; font-size: 9px; letter-spacing: 0.04em; }
+.freeform-variant-practice__form label > span small { margin-left: 5px; color: #666; font-size: 8px; }
+.freeform-variant-practice__form input { width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); outline: 0; background: var(--surface); color: var(--white); font-family: inherit; font-size: 12px; transition: border-color 0.3s; }
+.freeform-variant-practice__form input:focus { border-color: #888; }
+.freeform-variant-practice__form input::placeholder { color: #666; }
+.freeform-variant-practice__form .outline-button { justify-self: start; min-height: 38px; }
+.freeform-variant-result { display: grid; gap: 8px; margin-top: 12px; padding: 11px 12px; border-left: 2px solid var(--line); background: var(--surface); }
+.freeform-variant-result.is-correct { border-left-color: #9ec5a5; }
+.freeform-variant-result.is-wrong { border-left-color: var(--red); }
+.freeform-variant-result__head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.freeform-variant-result__head svg { width: 14px; height: 14px; }
+.freeform-variant-result.is-correct .freeform-variant-result__head svg { color: #9ec5a5; }
+.freeform-variant-result.is-wrong .freeform-variant-result__head svg { color: var(--red); }
+.freeform-variant-result__head strong { color: var(--white); font-size: 12px; font-weight: 500; }
+.freeform-variant-result__head small { color: #777; font-size: 8px; }
+.freeform-variant-result > p { margin: 0 !important; color: #bbb !important; font-size: 10px !important; line-height: 1.75 !important; }
+.freeform-variant-result__caveat, .freeform-variant-result__previous { color: #777 !important; }
+.freeform-variant-verdict { display: grid; gap: 5px; margin-top: 3px; padding: 9px 10px; border: 1px solid var(--line); }
+.freeform-variant-verdict strong { font-size: 11px; font-weight: 500; }
+.freeform-variant-verdict p { margin: 0 !important; color: #bbb !important; font-size: 10px !important; line-height: 1.7 !important; }
+.freeform-variant-verdict small { color: #777; font-size: 8px; line-height: 1.6; }
+.freeform-variant-verdict.is-same { border-color: rgba(234, 56, 76, 0.4); background: rgba(234, 56, 76, 0.05); }
+.freeform-variant-verdict.is-same strong { color: var(--red); }
+.freeform-variant-verdict.is-different { border-color: rgba(216, 162, 74, 0.4); background: rgba(216, 162, 74, 0.05); }
+.freeform-variant-verdict.is-different strong { color: #d8a24a; }
+.freeform-variant-verdict.is-undetermined { border-color: rgba(136, 136, 136, 0.4); background: rgba(136, 136, 136, 0.05); }
+.freeform-variant-verdict.is-undetermined strong { color: #aaa; }
+.freeform-variant-result__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.freeform-variant-result__actions .practice-text-button { display: inline-flex; align-items: center; gap: 5px; color: #aaa; font-size: 9px; }
+.freeform-variant-result__actions .practice-text-button svg { width: 12px; height: 12px; }
+.freeform-variant-result__answer { flex: 1 1 100%; margin: 0 !important; padding: 8px 9px; border: 1px solid rgba(158, 197, 165, 0.35); background: rgba(158, 197, 165, 0.05); color: #c8c8c8 !important; font-size: 10px !important; }
+.freeform-variant-empty { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid rgba(216, 162, 74, 0.35); background: rgba(216, 162, 74, 0.04); }
+.freeform-variant-empty > svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; color: #d8a24a; }
+.freeform-variant-empty strong { display: block; color: var(--white); font-size: 12px; font-weight: 500; }
+.freeform-variant-empty p { margin: 7px 0 0 !important; color: #aaa !important; font-size: 10px !important; line-height: 1.7 !important; }
+.freeform-variant-empty .outline-button { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; }
+.freeform-variant-empty .outline-button svg { width: 12px; height: 12px; }
+
 @media (max-width: 1100px) {
   .freeform-form { grid-template-columns: 1fr; }
   .freeform-side { grid-template-columns: 1fr 1fr; align-items: start; }

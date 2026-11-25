@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RotateCcw, ScanSearch, ShieldQuestion } from 'lucide-react';
 import { buildRuleResult, matchBuiltinQuestion } from '../engine/freeform';
 import { buildAiDiagnosis } from '../engine/verify';
+import { collectVerifiedVariants } from '../engine/variant';
 import {
   checkAiHealth,
   requestFreeformDiagnosis,
+  requestVariantCandidates,
   type AiHealth,
   type FreeformFailure,
 } from '../services/freeformDiagnosis';
-import type { FreeformResult } from '../types';
+import type { FreeformAiDiagnosis, FreeformResult, FreeformVariantCandidate } from '../types';
 import FreeformResultView from './freeform/FreeformResult';
 import ImageInput from './freeform/ImageInput';
+import VariantPractice, { type VariantPracticeState } from './freeform/VariantPractice';
 
 type Phase = 'idle' | 'recognizing' | 'ocr-ready' | 'diagnosing' | 'result' | 'error';
 
@@ -18,6 +21,18 @@ interface Submission {
   question: string;
   finalAnswer: string;
   steps: string[];
+}
+
+const emptyVariantState: VariantPracticeState = {
+  status: 'idle',
+  variants: [],
+  rejectedCount: 0,
+  exhausted: false,
+  message: '',
+};
+
+function canGenerateVariants(diagnosis: FreeformAiDiagnosis): boolean {
+  return diagnosis.status === 'diagnosed' || diagnosis.status === 'process-error';
 }
 
 const retryable = new Set<FreeformFailure['code']>([
@@ -38,8 +53,10 @@ export default function FreeformSection() {
   const [failure, setFailure] = useState<FreeformFailure | null>(null);
   const [ocrNote, setOcrNote] = useState('');
   const [health, setHealth] = useState<AiHealth | null>(null);
+  const [variantState, setVariantState] = useState<VariantPracticeState>(emptyVariantState);
   const requestSeq = useRef(0);
   const ocrSeq = useRef(0);
+  const variantSeq = useRef(0);
   const lastSubmission = useRef<Submission | null>(null);
 
   useEffect(() => {
@@ -52,10 +69,53 @@ export default function FreeformSection() {
 
   const invalidate = () => {
     requestSeq.current += 1;
+    variantSeq.current += 1;
     setResult(null);
     setFailure(null);
     setOcrNote('');
+    setVariantState(emptyVariantState);
     setPhase('idle');
+  };
+
+  const runVariantCollection = (
+    submission: Submission,
+    diagnosis: FreeformAiDiagnosis,
+    initialCandidates: FreeformVariantCandidate[],
+    excludeStems: string[] = [],
+  ) => {
+    const seq = variantSeq.current + 1;
+    variantSeq.current = seq;
+    setVariantState({ ...emptyVariantState, status: 'loading' });
+
+    let usedInitial = false;
+    collectVerifiedVariants(async (round, exclude) => {
+      if (round === 0 && !usedInitial && initialCandidates.length > 0) {
+        usedInitial = true;
+        return initialCandidates;
+      }
+      const response = await requestVariantCandidates({
+        question: submission.question,
+        errorReason: diagnosis.aiReason || diagnosis.reason,
+        knowledgePoint: diagnosis.knowledgePoint,
+        count: 2,
+        excludeStems: exclude,
+      });
+      if (!response.ok) throw new Error(response.message);
+      return response.variants;
+    }, {
+      target: 2,
+      maxRounds: 2,
+      excludeStems,
+    }).then((outcome) => {
+      if (seq !== variantSeq.current) return;
+      setVariantState({
+        status: outcome.verified.length > 0 ? 'ready' : 'error',
+        variants: outcome.verified,
+        rejectedCount: outcome.rejected.length,
+        exhausted: outcome.exhausted,
+        message: outcome.requestError ?? '',
+      });
+    });
   };
 
   const steps = stepsText
@@ -69,9 +129,11 @@ export default function FreeformSection() {
     const seq = requestSeq.current + 1;
     requestSeq.current = seq;
     ocrSeq.current = seq;
+    variantSeq.current += 1;
     setResult(null);
     setFailure(null);
     setOcrNote('');
+    setVariantState(emptyVariantState);
     setPhase('recognizing');
   };
 
@@ -124,6 +186,8 @@ export default function FreeformSection() {
 
     const builtin = matchBuiltinQuestion(trimmedQuestion);
     if (builtin) {
+      variantSeq.current += 1;
+      setVariantState(emptyVariantState);
       setResult(buildRuleResult(builtin, trimmedAnswer, trimmedSteps));
       setFailure(null);
       setOcrNote('');
@@ -133,6 +197,8 @@ export default function FreeformSection() {
 
     const seq = requestSeq.current + 1;
     requestSeq.current = seq;
+    variantSeq.current += 1;
+    setVariantState(emptyVariantState);
     setPhase('diagnosing');
     setFailure(null);
     setResult(null);
@@ -151,12 +217,20 @@ export default function FreeformSection() {
     }
 
     setHealth((current) => ({ ai: true, vision: current?.vision ?? false }));
-    setResult(buildAiDiagnosis(submission, response.result));
+    const diagnosis = buildAiDiagnosis(submission, response.result);
+    setResult(diagnosis);
     setPhase('result');
+    if (canGenerateVariants(diagnosis)) {
+      const candidates = response.result.variants?.length
+        ? response.result.variants
+        : [response.result.variant];
+      runVariantCollection(submission, diagnosis, candidates);
+    }
   };
 
   const reset = () => {
     requestSeq.current += 1;
+    variantSeq.current += 1;
     lastSubmission.current = null;
     setQuestion('');
     setFinalAnswer('');
@@ -164,7 +238,18 @@ export default function FreeformSection() {
     setResult(null);
     setFailure(null);
     setOcrNote('');
+    setVariantState(emptyVariantState);
     setPhase('idle');
+  };
+
+  const regenerateVariants = () => {
+    if (!lastSubmission.current || !result || result.source !== 'ai' || !canGenerateVariants(result)) return;
+    runVariantCollection(
+      lastSubmission.current,
+      result,
+      [],
+      variantState.variants.map((variant) => variant.stem),
+    );
   };
 
   const healthLabel = health === null
@@ -330,7 +415,19 @@ export default function FreeformSection() {
         )}
 
         {phase === 'result' && result && (
-          <FreeformResultView result={result} studentAnswer={lastSubmission.current?.finalAnswer ?? finalAnswer} />
+          <FreeformResultView
+            result={result}
+            studentAnswer={lastSubmission.current?.finalAnswer ?? finalAnswer}
+            variantPractice={result.source === 'ai' && canGenerateVariants(result)
+              ? (
+                <VariantPractice
+                  state={variantState}
+                  originalDiagnosis={result}
+                  onRetry={regenerateVariants}
+                />
+              )
+              : undefined}
+          />
         )}
       </div>
 

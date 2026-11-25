@@ -32,6 +32,8 @@ export interface CollectVariantResult {
   rejected: RejectedVariant[];
   rounds: number;
   exhausted: boolean;
+  /** 补充生成请求失败时的提示；已有通过复算的题仍会返回。 */
+  requestError: string | null;
 }
 
 export function normalizeVariantStem(stem: string): string {
@@ -110,10 +112,17 @@ export async function collectVerifiedVariants(
   const verifiedList: VerifiedFreeformVariant[] = [];
   const rejectedList: RejectedVariant[] = [];
   let rounds = 0;
+  let requestError: string | null = null;
 
   for (let round = 0; round < maxRounds && verifiedList.length < target; round += 1) {
     rounds = round + 1;
-    const candidates = await request(round, [...usedStems]);
+    let candidates: FreeformVariantCandidate[];
+    try {
+      candidates = await request(round, [...usedStems]);
+    } catch (error) {
+      requestError = error instanceof Error ? error.message : '变式生成请求失败';
+      break;
+    }
     for (const raw of candidates) {
       if (verifiedList.length >= target) break;
       const candidate = {
@@ -142,5 +151,6 @@ export async function collectVerifiedVariants(
     rejected: rejectedList,
     rounds,
     exhausted: verifiedList.length < target,
+    requestError,
   };
 }

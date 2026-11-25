@@ -45,7 +45,7 @@ describe('任意题结构校验：变式候选', () => {
     expect(result?.variants?.[0].answer).toBe('2');
   });
 
-  it('变式列表含不合格条目时整体降级，不跳过坏数据凑数', () => {
+  it('变式列表含不合格条目时整组丢弃，但保留诊断本身', () => {
     const result = parseFreeformAiResult(rawResult({
       variants: [
         { stem: '已知 f(x)=x²-2x+3，求 f(2)', answer: '3' },
@@ -53,16 +53,19 @@ describe('任意题结构校验：变式候选', () => {
       ],
     }), allowedNodeIds);
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.variants).toEqual([]);
   });
 
-  it('缺少变式和旧字段时整体降级', () => {
+  it('没有变式时不拒绝诊断；变式由补充接口单独生成', () => {
     const result = parseFreeformAiResult(rawResult({
       variants: undefined,
       variant: undefined,
     }), allowedNodeIds);
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.variants).toEqual([]);
+    expect(result?.reason).toBe('一次项符号写错');
   });
 
   it('证据不足时允许没有变式，但仍保留空列表', () => {

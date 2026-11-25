@@ -259,15 +259,13 @@ function validateFreeformOutput(value, allowedNodeIds) {
   const knowledgePoint = optionalText(value.knowledgePoint, 80);
   const stepQuote = optionalText(value.stepQuote, 300);
   const singleVariant = parseVariant(value.variant);
-  const variants = parseVariants(value.variants) ?? (singleVariant ? [singleVariant] : null);
+  const variants = parseVariants(value.variants) ?? (singleVariant ? [singleVariant] : []);
   const claims = parseClaims(value.claims);
   if (
     !correctAnswer
     || !standardSteps
     || !reason
     || !knowledgePoint
-    || !variants
-    || variants.length === 0
     || !claims
   ) return null;
 
@@ -288,7 +286,7 @@ function validateFreeformOutput(value, allowedNodeIds) {
     knowledgeNodeId: typeof value.knowledgeNodeId === 'string' && allowedNodeIds.has(value.knowledgeNodeId)
       ? value.knowledgeNodeId
       : null,
-    variant: variants[0],
+    variant: variants[0] ?? { stem: '', answer: '' },
     variants,
     confidence,
     claims,
