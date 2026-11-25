@@ -100,33 +100,83 @@
 - `h2 → h4` 跳级改为 `h2 → h3`；页脚「BACK TO TOP」补可读名称；前后项目按钮、站点 logo 的 `aria-label` 与可见文字对齐。
 - Lighthouse Accessibility 从 88 提升到 100。
 
+## 阶段 4 新增：多供应商模型接入
+
+「供应商名称」「模型 ID」「接口协议」现在是三个独立配置。页面「AI 设置」可以继续使用站点默认配置，也可以选择「使用自己的 Key」，在火山方舟、DeepSeek、OpenAI、Anthropic（Claude）以及管理员登记的中转站之间切换。
+
+- **两种协议**：OpenAI Chat Completions 与 Anthropic 原生 Messages。Base URL 保留 `/v1`、`/api/v3` 或中转站自定义前缀；Anthropic 使用 `x-api-key`、`anthropic-version`、顶层 `system` 和 `max_tokens`，只取 `text` 内容块，thinking 不进入诊断 JSON。
+- **协议不等于模型名**：中转站即使提供名为 `claude-...` 的模型，也按管理员声明的协议调用；新增同协议中转站只需增加 `AI_PROVIDERS` 配置。
+- **请求级配置**：每次请求独立解析供应商、模型和凭证，不修改进程全局变量；两个用户并发选择不同供应商时互不影响。
+- **站点/自定义分离**：站点模式只提交公开的 `providerId`，地址、模型范围和 Key 由服务端决定；自定义模式的 Key 只存在当前页面内存，切换供应商即清除。
+- **三种状态分开**：已填写、已启用、已实际连接是不同状态；只有用户主动点击「测试连接」或真实诊断成功后，才显示「已实际连接」。打开设置、切换下拉框不会产生付费模型请求。
+- **模型 ID 可手填**：支持官方模型名、火山接入点 ID 和中转站别名；「读取模型列表」失败时保留手填，不影响使用。
+- **图片能力按模型配置**：纯文本模型仍可正常诊断；图片识别失败会明确提示填写图片模型 ID 或改用支持图片的供应商。
+- **错误不换供应商**：凭证无效、模型不可用、限流、超时、图片能力不足、响应格式错误分别提示；不会自动切到站点 Key，也不会把题目发给第二家。
+
+> 当前验证状态：OpenAI / Anthropic 两种协议、四入口、路径前缀、并发隔离和错误矩阵均已用本地 mock 上游验证；**真实 OpenAI / DeepSeek / Anthropic / 中转站尚未联调（当前没有真实凭证），标记为待验证**。
+
 ## 使用自己的 API Key
 
-阶段 2 之后，任意题诊断页新增「AI 设置」，可选「使用站点配置」或「使用自己的 API Key」。
+阶段 2 之后，任意题诊断页新增「AI 设置」。阶段 4 将其扩展为多供应商面板。
 
-- **只存在当前页面内存**：自定义 Key 不写入 `localStorage`、`sessionStorage`、Cookie、URL、日志、错误信息、分析事件或学习报告；刷新或关闭页面即清除。
-- **只在需要 AI 时转发**：命中内置 12 题时仍走本地规则，不发任何请求。只有规则无法判断、用户已启用自定义 Key 且实际发起 AI 调用时，Key 才通过 HTTPS 请求体发送给本站后端，再由后端请求站点配置的服务商。
-- **沿用站点配置**：服务商、模型和 API 地址由服务端决定，前端只显示服务商与模型，不允许用户改 Base URL 或模型。
-- **启用 ≠ 连接成功**：点击「启用」只让设置生效；只有服务商实际响应成功后，设置面板才显示「连接成功」。
+- **只存在当前页面内存**：自定义 Key 不写入 `localStorage`、`sessionStorage`、Cookie、URL、日志、错误信息、分析事件或学习报告；刷新或关闭页面即清除，切换供应商时旧 Key 立即清空。
+- **只在需要 AI 时转发**：命中内置 12 题时仍走本地规则，不发任何请求。只有规则无法判断、用户已启用自定义 Key 且实际发起 AI 调用时，Key 才通过 HTTPS 请求体发送给本站后端，再由后端请求所选供应商。
+- **供应商、模型、协议分开选**：页面显示实际接收请求的域名、协议、文本模型和可选图片模型；模型 ID 可手填，也可点击「读取模型列表」尝试从供应商读取，失败时仍可手填。
+- **启用 ≠ 连接成功**：点击「启用」只让设置生效；只有用户点击「测试连接」发送最小请求并收到有效响应，或真实诊断成功后才显示「已实际连接」。
 - **无效 Key 不回退**：自定义 Key 被服务商拒绝时提示检查 Key，不会自动改用站点账户；限流、超时、断网时保留已填答案、步骤和已有规则结论。
-- **并发隔离**：后端按单次请求解析凭证，不修改全局环境变量、不共享鉴权客户端；两个用户同时请求时各自使用自己的 Key。
+- **并发隔离**：后端按单次请求解析供应商与凭证，不修改全局环境变量、不共享鉴权客户端；两个用户同时请求时各自使用自己的配置。
+- **切换期间旧结果不污染新设置**：每次设置变化递增一个内存 `revision`；旧请求晚返回时不会把新供应商标成「连接成功」。
 
-### 服务端配置
+### 服务端配置（三套示例）
 
-自定义 Key 需要服务端至少知道「用哪个模型」，但不要求配置站点默认 Key：
+完整字段说明见 [.env.example](.env.example)。以下只放占位 Key，真实 Key 不要提交到仓库。
+
+**1. 保留原火山方舟配置（旧变量）**
 
 ```powershell
-$env:AI_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'  # 可选，默认即此地址
-$env:AI_MODEL = '<服务商文本模型 ID>'                            # 必填，自定义 Key 也依赖它
-$env:AI_VISION_MODEL = '<多模态模型 ID>'                         # 可选，图片识别用
-$env:AI_PROVIDER_NAME = '火山方舟'                               # 可选，留空按 Base URL 推导
-# 不设置 AI_API_KEY：站点模式不可用，但页面可填写用户自己的 Key
+$env:AI_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
+$env:AI_MODEL = 'ep-xxxxxxxx'          # 火山控制台的接入点 ID 或模型名
+$env:AI_VISION_MODEL = 'ep-yyyyyyyy'   # 可选，多模态接入点
+$env:AI_API_KEY = '<服务端密钥>'
+$env:AI_PROVIDER_NAME = '火山方舟'
 node server.mjs
 ```
 
-- `AI_MODEL` 为空时，`/api/health` 返回 `customKeyReady:false`，页面会明确显示「站点尚未配置模型，无法使用自定义 Key」。
-- 只配置 `AI_MODEL`、不配置 `AI_API_KEY` 时，`/api/health` 返回 `ai:false`、`customKeyReady:true`；页面允许自定义模式，站点模式会提示未配置默认 Key。
-- 线上 FunctionWeb 需要在服务端环境变量中配置同样的项；当前已部署站点尚未设置 `AI_MODEL`，因此线上自定义 Key 入口会显示“站点未配置模型”，配置后无需改前端。
+旧部署升级后不需要改前端；旧前端请求不带 `providerId` 时仍使用这个默认供应商。
+
+**2. 用户自带 DeepSeek / OpenAI / Claude Key**
+
+```powershell
+# 不配置 AI_API_KEY，也不需要配置 AI_MODEL；
+# 页面会列出内置的火山方舟、DeepSeek、OpenAI、Anthropic（Claude）入口。
+node server.mjs
+```
+
+用户选择供应商后填写自己的模型 ID 和 Key，点「启用 → 测试连接」即可。模型 ID 以服务商控制台或文档为准：DeepSeek 常见为 `deepseek-chat` / `deepseek-reasoner`，OpenAI 常见为 `gpt-4o-mini` / `gpt-4o`，Anthropic 常见为 `claude-sonnet-4-5`，火山方舟使用控制台创建的 `ep-...` 接入点。页面里的示例 ID 只是占位建议，不保证你的账号可用。
+
+如果还要兼容旧前端，可只配置一个默认模型、不配置站点 Key：
+
+```powershell
+$env:AI_MODEL = '<默认文本模型或接入点 ID>'
+node server.mjs
+```
+
+**3. 管理员添加带路径前缀的中转站**
+
+```powershell
+$env:AI_PROVIDERS = '[{"id":"campus-relay","label":"校园中转站","protocol":"openai","baseUrl":"https://relay.example.edu.cn/ai/v1","textModels":["claude-sonnet-4-5-relay"],"visionModels":[],"apiKey":"","customKey":true,"jsonMode":"none","default":false}]'
+node server.mjs
+```
+
+- `baseUrl` 必须是 HTTPS（本机 mock 可用 HTTP 回环地址）；`/ai/v1` 这样的路径前缀会保留，最终请求为 `https://relay.example.edu.cn/ai/v1/chat/completions`。
+- 模型别名含 `claude` 不会改变协议；这里声明 `protocol: "openai"`，就按 OpenAI Chat Completions 发送。
+- 声明 `protocol: "anthropic"` 时，服务端会请求 `<baseUrl>/v1/messages`（Base URL 已带 `/v1` 时不重复追加）。
+- 站点模式需要默认 Key 时，在对应项里填写 `apiKey`；仍然只存在于服务端环境变量。
+- 新增同协议中转站只需再加一个数组项，不需要改代码。
+
+- `AI_MODEL` 为空且没有可用默认供应商时，`/api/health` 返回 `customKeyReady:false`；新前端仍会显示内置 BYOK 入口，旧前端会提示「站点尚未配置模型」。
+- 只配置默认模型、不配置 `AI_API_KEY` 时，`/api/health` 返回 `ai:false`、`customKeyReady:true`；页面允许自定义模式，站点模式会提示未配置默认 Key。
+- 线上 FunctionWeb 需要在服务端环境变量中配置同样的项；配置后无需改前端。
 
 ## 这次迭代改变了什么
 
@@ -157,7 +207,7 @@ npm run build      # tsc -b && vite build，产物在 dist/
 
 ### 启用任意题诊断（可选）
 
-内置 12 题和比较演示不需要这一步。要使用 `#freeform` 的任意题诊断与图片识别，需要配置服务端模型。默认按火山方舟的 OpenAI 兼容接口编写，Base URL 为 `https://ark.cn-beijing.volces.com/api/v3`；模型 ID 不写死，全部从环境变量读取。
+内置 12 题和比较演示不需要这一步。要使用 `#freeform` 的任意题诊断与图片识别，可以在服务端配置一个默认供应商，也可以不配置站点 Key、由用户在页面填写自己的 Key。默认按火山方舟的 OpenAI 兼容接口编写，Base URL 为 `https://ark.cn-beijing.volces.com/api/v3`；模型 ID 不写死，全部从环境变量或 `AI_PROVIDERS` 读取。
 
 ```powershell
 $env:AI_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
@@ -167,7 +217,7 @@ $env:AI_API_KEY = '<服务端密钥>'
 node server.mjs
 ```
 
-也可以复制 `.env.example` 为 `.env`（已被 gitignore），使用 Node.js 20.6+ 的 `node --env-file=.env server.mjs` 启动。模型 ID 以火山方舟控制台当前模型列表为准；例如支持多模态理解与结构化输出的 `doubao-seed-2-1-lite-260915` 可作为示例，但不要把它当前提。密钥只放在服务端环境变量，不进入前端或仓库。
+也可以复制 `.env.example` 为 `.env`（已被 gitignore），使用 Node.js 20.6+ 的 `node --env-file=.env server.mjs` 启动。`.env.example` 提供三套可照填示例：保留原火山配置、用户自带 DeepSeek/OpenAI/Claude Key、管理员添加带路径前缀的中转站。模型 ID 以各服务商控制台当前列表为准；示例 ID 不是能力承诺。密钥只放在服务端环境变量，不进入前端或仓库。
 
 ## 部署
 
@@ -177,7 +227,7 @@ node server.mjs
 - `run.sh` 显式 `export PORT=8000`，与 FunctionWeb 的 `runtime.port` 一致。
 - AI 配置通过服务端环境变量注入；未配置时 `/api/health` 返回 `ai:false`，页面明确显示降级提示，内置 12 题仍可离线使用。
 - 站点可见性保持 `public`（所有人可见）。
-- 部署产物结构：`build.sh` 把 `dist/` 复制为 `runtime/dist/`，并把 `server.mjs`、`run.sh` 放入 `runtime/`。`server.mjs` 在自身目录下查找 `dist`，因此不能把 `dist` 内容摊平到 `runtime/`，否则首页会返回 `{"error":"not-found"}`。
+- 部署产物结构：`build.sh` 把 `dist/` 复制为 `runtime/dist/`，并把 `server.mjs`、整个 `server/ai/` 目录和 `run.sh` 放入 `runtime/`。阶段 4 起 `server.mjs` 会导入 `server/ai/providers.mjs`、`protocols.mjs`、`structured.mjs`，漏复制会导致启动失败。`dist` 也不能摊平到 `runtime/`，否则首页会返回 `{"error":"not-found"}`。
 
 ## 演示路径
 
@@ -203,16 +253,20 @@ node server.mjs
 
 **可选 AI 兜底**　内置题规则返回 `unknown` 时，页面才会尝试请求服务端模型；未配置、断网、超时（8 秒）或返回结构不合格时静默保留规则结论，页面不报错。AI 结果标记为「AI 诊断」，置信度最高为 `medium`，且只会保留知识图中真实存在的节点 ID。
 
-使用 Node.js 20 或更高版本，以及支持 Chat Completions 与 JSON 输出的模型服务。`server.mjs` 提供：
+使用 Node.js 20 或更高版本。服务端不依赖第三方 AI SDK：用 Node 内置 `fetch` 直接调用供应商协议，避免为了两种协议引入整套框架。`server.mjs` 提供：
 
-- `GET /api/health`：返回 `{ ok, ai, model, visionModel, vision, provider, customKeyReady }`；`ai` 表示站点默认 Key 是否可用，`customKeyReady` 表示服务端是否配置了可用于自定义 Key 的模型。
-- `POST /api/freeform-diagnose`：任意题结构化诊断；严格校验模型返回，失败重试一次，仍不合格返回 200「证据不足」。请求可带 `credentialMode: "site" | "custom"`；自定义模式需带 `apiKey`。
-- `POST /api/freeform-variants`：补充生成同错因变式候选；候选答案仍需前端本地复算后才会展示；凭证规则同上。
-- `POST /api/recognize`：图片 OCR；只接受 data URL，识别结果回填后由学生确认；凭证规则同上。
-- `POST /api/diagnose`：规则 `unknown` 时的旧 AI 兜底，8 秒超时；凭证规则同上。
+- `GET /api/health`：保留 `{ ok, ai, model, visionModel, vision, provider, customKeyReady }`，新增 `customKeyAvailable`、`defaultProviderId`、`providers[]`。`providers[]` 只包含公开信息：id、名称、协议、实际域名、路径前缀、模型范围、是否有站点 Key、是否允许自定义 Key；不包含任何 Key。
+- `POST /api/diagnose`：规则 `unknown` 时的旧 AI 兜底，8 秒超时。
+- `POST /api/freeform-diagnose`：任意题结构化诊断；严格校验模型返回，失败重试一次，仍不合格返回 200「证据不足」。
+- `POST /api/freeform-variants`：补充生成同错因变式候选；候选答案仍需前端本地复算后才会展示。
+- `POST /api/recognize`：图片 OCR；只接受 data URL，识别结果回填后由学生确认。
+- `POST /api/ai/test`：用户主动点击「测试连接」时才调用，向当前协议和模型发送一个最小请求并验证有效文本响应；不参与诊断，也不产生诊断提示词。
+- `POST /api/ai/models`：用户主动点击「读取模型列表」时才调用；失败返回 200 `{ available:false, error:"models-unavailable" }`，前端保留手填，不影响使用。
 - 若存在 `dist/`，同时作为静态服务器，访问 `http://127.0.0.1:8787` 即可预览构建产物。
 
-凭证只在单次请求内解析：站点模式使用服务端 `AI_API_KEY`，自定义模式只使用请求体里的 `apiKey`；自定义 Key 被拒绝时返回 `custom-key-invalid`，不会回退站点账户。服务端不记录请求体或 Key。
+四个业务入口的公共请求字段：`credentialMode: "site" | "custom"`、`providerId`；自定义模式再带 `apiKey`、`model`（图片识别可带 `visionModel`）。站点模式会忽略客户端提交的 `model`，只使用服务端配置；请求体出现 `baseUrl`、`endpoint` 等地址覆盖字段会被 400 拒绝；未知 `providerId`、非法模型 ID、未登记的协议同样会被拒绝。
+
+凭证只在单次请求内解析：站点模式使用服务端配置的站点 Key，自定义模式只使用请求体里的 `apiKey`；每次请求生成独立配置对象，不修改进程全局变量。错误码区分 `custom-key-invalid`、`custom-key-required`、`unknown-provider`、`model-not-found`、`rate-limited`、`timeout`、`vision-model-required`、`truncated`、`upstream-redirect`、`invalid-response`、`invalid-schema` 等；错误信息不包含凭证。携带凭证的请求使用 `redirect: "manual"`，不会跟随跳转到其它域名。服务端不记录请求体或 Key。
 
 开发模式下 Vite 已把 `/api` 代理到 `http://127.0.0.1:8787`（可用 `PORT` 环境变量修改服务端口）。两个终端分别运行 `node server.mjs` 与 `npm run dev` 即可联调；只运行 `npm run dev` 时任意题请求会失败，页面明确提示，内置 12 题仍可用。
 
@@ -238,8 +292,8 @@ node server.mjs
 
 ## 当前验证状态
 
-- 自动化测试：`npm test` 通过 **229 项**。原有 160 项全部保留；阶段 2 新增 45 项，自定义 Key 新增 24 项，覆盖站点凭证、仅自定义 Key、无效 Key 不回退、并发凭证隔离、请求体不含 URL 泄漏、规则命中不发请求、内存状态清除。阶段 3 只改文案、静态资源与加载方式，没有删除或弱化测试。
-- 阶段 3 主包：`npm run build` 输出入口 JS **529.8 kB / 173.2 kB gzip**，低于 200 kB 目标；three.js、xyflow、KaTeX、Swiper 均为按需异步 chunk。
+- 自动化测试：`npm test` 通过 **528 项**（22 个测试文件）。原有 458 项全部保留；阶段 4 新增 70 项：供应商配置 14、协议适配 19、多供应商集成 24、前端设置状态 6、连接测试/模型列表 7。没有删除或弱化任何既有测试。
+- 阶段 4 主包：`npm run build` 输出入口 JS **566.63 kB / 186.07 kB gzip**，仍低于 200 kB 目标；three.js、xyflow、KaTeX、Swiper 均为按需异步 chunk。
 - 阶段 3 Lighthouse（移动端，同一构建连续 3 次，本地预览）：Performance 71 / 94 / 92（中位数 92），Accessibility 三次均 **100**，FCP/LCP 中位数 **2214 ms**（最差 3807 ms），TBT 中位数 **150 ms**；改前同条件三次为 Performance 53 / 53 / 56、Accessibility 88、LCP 约 4805 ms。
 - 阶段 3 三宽度全流程（375 / 768 / 1440，真实 Chrome）：
   - 首页 → 比较草稿（点击重新诊断，甲定位到第 1 行）→ 练习函数题组（提交 → 变式答对 → 第二题 → 报告）→ 任意题（命中内置题，不发请求）→ 教师视图（粘贴 1 行 CSV，聚合出 1 名学生与 1 个错因）。
@@ -252,11 +306,13 @@ node server.mjs
 - 任意题入口（本地 mock 上游）：已验证内置题走规则、非题库函数/一元二次方程/等差数列求和、AI 算错时复算采纳、引用原句冲突、OCR 回填后确认、未配置时的降级提示。**这些是本地 mock 验证，不是真实模型验收。**
 - 阶段 2（本地 mock + 真实浏览器）：任意题诊断后生成 2 道变式；答案错误的候选（f(1)/f(4)）被丢弃并补生成通过复算的题；答错变式显示“错因很可能仍在”，重试答对显示“本次变式答对（第 2 次尝试）”；教师视图粘贴 2 名学生 CSV 后显示 Top 错因与两个学生编号。**仍是本地 mock，不是真实模型验收。**
 - 自定义 Key（本地 mock + 真实浏览器）：站点无默认 Key、仅自定义 Key 时诊断成功；无效 Key 显示“Key 无效”且题目/答案/步骤保留；改成有效 Key 并重新启用后显示诊断结果和“连接成功”；刷新后 Key 输入框为空、状态回到未启用。**凭证与回退逻辑是本地 mock 验证，真实服务商 Key 尚未验收。**
+- 阶段 4 多供应商（本地 mock 上游）：旧火山配置、OpenAI/DeepSeek 并发隔离、Anthropic Messages 文本与图片、带路径前缀且模型别名含 `claude` 的 OpenAI 兼容中转站、四个业务入口、连接测试、模型列表、401/403/429/超时/图片不支持/无效 JSON/截断/跳转均已验证；两个并发请求各自命中自己的地址、模型和 Key，站点 Key 未出现在健康接口或错误体。**这些是本地 mock 协议测试，不是真实供应商联调。**
+- 阶段 4 真实供应商联调：**待验证**（当前环境没有 OpenAI / DeepSeek / Anthropic / 中转站真实凭证）。本地 mock 只能证明请求格式、路由与错误映射，不证明真实模型一定接受参数或返回合格 JSON。
+- 阶段 4 线上部署：尚未重新部署 FunctionWeb；线上仍是阶段 3 版本，新的多供应商设置面板需重新发布后可见。
 - 375px 任意题入口：用 CDP 实测 `innerWidth=375`、`scrollWidth=375`、`clientWidth=375`，无横向滚动；`.freeform-form` 与 `.freeform-side` 均为单列，图片上传区在表单下方纵向堆叠。
 - 375px 阶段 2 布局：用同源 iframe 模拟 371×808，`#teacher` 与 `#freeform` 的 `scrollWidth=356`、`clientWidth=356`，无横向滚动；教师导入/汇总面板纵向堆叠，按钮与文本框完整可见。
-- 线上 FunctionWeb 部署：自定义 Key 版本已重新部署成功（部署 ID `dep_6b06c1a1eca0987814050560`），站点仍为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；首页返回 200 HTML，线上 JS 已包含「AI 设置 / 使用自己的 API Key」；`/api/health` 返回 `ai:false`、`model:null`、`provider:"火山方舟"`、`customKeyReady:false`，说明代码已上线但尚未配置模型。站点截图已刷新。
-- 自定义 Key 线上启用条件：部署环境需要配置 `AI_MODEL`（以及可选的 `AI_BASE_URL`、`AI_VISION_MODEL`、`AI_PROVIDER_NAME`），**不需要**配置 `AI_API_KEY`。当前线上尚未设置 `AI_MODEL`，因此页面会显示“站点尚未配置模型，无法使用自定义 Key”；配置后无需再次改代码，重新发布/重启使环境生效即可。
-- 真实火山方舟调用、线上任意题变式、真实班级 CSV、真实服务商自定义 Key：**待验证**（尚未配置模型/真实 Key）。没有伪造的线上结果或准确率数据。
+- 线上 FunctionWeb 当前仍是阶段 3 版本（部署 ID `dep_6b06c1a1eca0987814050560`），站点为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；阶段 4 的多供应商代码尚未重新部署。旧版线上在未配置 `AI_MODEL` 时会显示“站点尚未配置模型”；阶段 4 新版本会把内置 BYOK 入口列出来，不要求服务端先配置模型。
+- 真实火山方舟调用、OpenAI / DeepSeek / Anthropic 官方接口、中转站联调、线上任意题变式、真实班级 CSV、真实服务商自定义 Key：**待验证**（尚未配置真实凭证）。没有伪造的线上结果或准确率数据。
 - 真人试用：**待验证**。试用方案与记录模板见 `试用方案与录屏脚本.md`。
 
 ## 已知边界
@@ -271,8 +327,10 @@ node server.mjs
 - 任意题变式只在能独立复算的题型内生成；三角函数、证明、含参讨论等题型会显示“没有找到可通过本地复算的变式”，不会展示未经核验的题。
 - 变式答错后的“错因仍在 / 出现新问题”来自两次 AI 诊断的知识点对比，是线索而不是已证明结论；界面始终标注“未经独立核验”。
 - 教师视图只聚合 CSV 里的真实字段；没有真实报告时统计为空，不生成虚构学生或准确率。数据仅在本机，换设备不会同步。
-- 自定义 Key 只保存在当前页面内存；刷新、关闭页面或点击「清除」后不可恢复。它依赖服务端已配置模型 ID，前端不能自行指定服务商或 Base URL。
-- 自定义 Key 的“连接成功”只表示服务商实际响应成功；一次变式或单次诊断的结果仍受核验层和证据边界限制。
+- 自定义 Key 只保存在当前页面内存；刷新、关闭页面、切换供应商或点击「清除」后不可恢复。用户可以从服务端登记的供应商中选择并手填模型 ID，但不能自行指定 Base URL；站点模式仍由服务端决定地址、模型范围和 Key。
+- 内置的 OpenAI / Anthropic / DeepSeek 示例模型 ID 只是可编辑建议，不保证你的账号可用，以服务商控制台为准；「读取模型列表」也可能失败，此时必须手填模型 ID。
+- 自定义 Key 的「已实际连接」只表示服务商对最小测试请求或一次真实诊断返回了有效响应；一次变式或单次诊断的结果仍受核验层和证据边界限制。
+- 阶段 4 的协议验证是本地 mock，不是真实供应商联调；真实模型是否接受 `response_format`、温度、图片内容块等参数，仍需各自账号实测。
 - 首页 7 个模块只代表内置题库的覆盖范围，每个模块 1–2 题，不代表完整高中数学；三角、概率、指数与对数的任意题只标“AI 推断”，首页标为实验性。
 - 首页插图由文本生图模型生成一次后本地化，画面中的抽象符号不是可读数学内容，也不参与诊断。
 - three.js 3D 场景只在桌面端空闲后加载；移动端与减少动效使用静态 SVG，不影响诊断能力。
@@ -298,15 +356,29 @@ src/
   animations/                    落地页与做题区动效
   data/                          题库、错因规则、知识图、题组
   engine/                        诊断、步骤分析、归一化、会话汇总、变式复算、CSV 聚合
-  services/                      AI 客户端、自定义 Key 内存状态、任意题 API、记录、CSV 下载
-  server/                        服务端凭证隔离的 mock 集成测试
-server.mjs                       任意题诊断 / 变式生成 / OCR / 旧 AI 兜底与静态服务（Node 20，无额外依赖）
-.env.example                     服务端环境变量模板（空值，不含密钥）
+  services/                      AI 客户端、供应商目录与连接测试、自定义 Key 内存状态、任意题 API、记录、CSV 下载
+  server/                        服务端凭证隔离、多供应商协议与 mock 集成测试
+server/
+  ai/providers.mjs               供应商注册表：AI_PROVIDERS、旧变量兼容、站点/自定义凭证解析
+  ai/protocols.mjs               OpenAI Chat Completions 与 Anthropic Messages 适配
+  ai/structured.mjs              结构化 JSON 提取、校验重试与降级
+server.mjs                       任意题诊断 / 变式生成 / OCR / 旧 AI 兜底、连接测试、模型列表与静态服务（Node 20，无额外依赖）
+.env.example                     服务端环境变量模板（三套示例，空值，不含真实密钥）
 ```
 
 ## 验收
 
-- `npm run typecheck`、`npm test`、`npm run build` 均无错误；测试 229 项全部通过。
+- `npm run typecheck`、`npm test`、`npm run build` 均无错误；测试 **528 项**全部通过。
+- 阶段 4 多供应商（本地 mock）：
+  1. 旧火山配置仍能完成诊断；无 AI 配置时站点模式明确拒绝，内置 12 题规则诊断不受影响。
+  2. OpenAI 与 DeepSeek 两个供应商并发请求，各自命中自己的地址、模型和 Key，互不串配置。
+  3. Claude 官方模式发出 Anthropic Messages 请求，包含 `x-api-key`、`anthropic-version`、顶层 `system`、`max_tokens`；图片按 Anthropic base64 内容块发送；thinking 不进入诊断 JSON。
+  4. 带路径前缀、模型别名含 `claude` 的 OpenAI 兼容中转站，URL、协议和模型别名三者都正确。
+  5. `/api/diagnose`、`/api/freeform-diagnose`、`/api/freeform-variants`、`/api/recognize` 四入口均走新配置；文本诊断、变式生成、图片识别各完成一次从应用 API 到 mock 上游再回到应用结果的测试。
+  6. 切换供应商后 B 收不到 A 的 Key；旧请求晚返回不把新设置标成连接成功；客户端指定地址被拒绝；站点 Key 不出现在客户端可见信息中。
+  7. 401/403、429、超时、图片不支持、无效 JSON、截断、跳转各验证一次；错误信息不含凭证。
+  8. 打开设置或切换下拉不产生模型请求；只有点击「测试连接」才发送最小请求。
+- 阶段 4 真实供应商：**待验证**（无真实凭证，未做联网联调）。
 - 阶段 3：
   1. 入口 JS gzip < 200 kB；three.js、xyflow、KaTeX、Swiper 均按需加载。
   2. `src` 与 `dist` 中无运行时生图接口引用；离线刷新后本地插图仍显示。
@@ -333,12 +405,13 @@ server.mjs                       任意题诊断 / 变式生成 / OCR / 旧 AI �
   4. 变式答对 → 显示“本次变式答对”和首次/第 N 次尝试；修改答案后旧结论清除。
   5. 任意题诊断记录可在本机汇总，合并去重薄弱节点与知识点；同一题只保留最近一次。
   6. 教师视图粘贴 CSV 或导入本机真实记录 → 显示 Top 3 错因与学生编号；证据不足/正确/跳过不计入；无数据时不生成统计。
-- 自定义 API Key：
-  1. 「AI 设置」可切换站点配置/自定义 Key，显示服务商与模型；Key 输入默认遮挡，支持显示、隐藏、启用、清除。
-  2. 站点无默认 Key、只填自定义 Key 时，任意题诊断仍成功；站点模式请求返回 503 `ai-not-configured`。
+- 多供应商与自定义 API Key：
+  1. 「AI 设置」可切换站点配置/自己的 Key，选择供应商后显示协议、实际域名、文本模型和可选图片模型；Key 输入默认遮挡，支持显示、隐藏、启用、清除。
+  2. 站点无默认 Key、用户选择内置供应商并填写自己的 Key 时，任意题诊断仍成功；站点模式请求返回 503 `ai-not-configured`。
   3. 无效自定义 Key → 显示“Key 无效”且不回退站点账户；答案、步骤和题目保留。
-  4. 有效自定义 Key → 实际诊断成功后显示“连接成功”；刷新后 Key 清空、状态回到未启用。
-  5. 两个并发请求分别使用各自的 Key；规则命中时没有任何 AI 请求。
+  4. 「已填写 / 已启用 / 已实际连接」分开显示；只有点击「测试连接」收到有效响应或真实诊断成功后才显示“已实际连接”；刷新后 Key 清空、状态回到未启用。
+  5. 两个并发请求分别使用各自的供应商、模型和 Key；切换供应商后旧 Key 清空；规则命中时没有任何 AI 请求。
+  6. 模型 ID 可手填；「读取模型列表」失败时保留手填，不阻塞诊断。
 - 375px 宽度下可完成比较草稿、选题、作答、变式、报告、复制报告与只重做错题；任意题入口与教师视图无横向滚动，表单、图片区、导入与汇总面板纵向堆叠。
 - 线上 FunctionWeb：站点与 `/api/health` 可访问；内置题规则诊断通过；未配置模型时任意题显示明确降级提示。
-- 线上自定义 Key：**待验证**（需要配置部署环境 `AI_MODEL` 后，由用户在页面输入真实 Key）。
+- 线上多供应商与自定义 Key：**待验证**（阶段 4 尚未重新部署；也需要由用户在页面输入真实 Key 才能完成真实供应商联调）。
