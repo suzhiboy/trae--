@@ -189,8 +189,8 @@ node server.mjs
 - 自定义 Key（本地 mock + 真实浏览器）：站点无默认 Key、仅自定义 Key 时诊断成功；无效 Key 显示“Key 无效”且题目/答案/步骤保留；改成有效 Key 并重新启用后显示诊断结果和“连接成功”；刷新后 Key 输入框为空、状态回到未启用。**凭证与回退逻辑是本地 mock 验证，真实服务商 Key 尚未验收。**
 - 375px 任意题入口：用 CDP 实测 `innerWidth=375`、`scrollWidth=375`、`clientWidth=375`，无横向滚动；`.freeform-form` 与 `.freeform-side` 均为单列，图片上传区在表单下方纵向堆叠。
 - 375px 阶段 2 布局：用同源 iframe 模拟 371×808，`#teacher` 与 `#freeform` 的 `scrollWidth=356`、`clientWidth=356`，无横向滚动；教师导入/汇总面板纵向堆叠，按钮与文本框完整可见。
-- 线上 FunctionWeb 部署：阶段 2 已重新部署成功（部署 ID `dep_6b06b3ace4e7d80dfa720343`），站点仍为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；首页返回 200 HTML，阶段 2 的“教师视图 / 错因很可能仍在 / 导出 CSV”已包含在线上 JS 包中；`/api/health` 返回 `ai:false`（未配置模型，内置 12 题仍可离线）。站点截图已刷新。
-- 自定义 Key 线上启用条件：部署环境需要配置 `AI_MODEL`（以及可选的 `AI_BASE_URL`、`AI_VISION_MODEL`、`AI_PROVIDER_NAME`），**不需要**配置 `AI_API_KEY`。当前线上尚未设置 `AI_MODEL`，因此页面会显示“站点尚未配置模型，无法使用自定义 Key”；前端与后端已支持，不需要再次改代码。
+- 线上 FunctionWeb 部署：自定义 Key 版本已重新部署成功（部署 ID `dep_6b06c1a1eca0987814050560`），站点仍为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；首页返回 200 HTML，线上 JS 已包含「AI 设置 / 使用自己的 API Key」；`/api/health` 返回 `ai:false`、`model:null`、`provider:"火山方舟"`、`customKeyReady:false`，说明代码已上线但尚未配置模型。站点截图已刷新。
+- 自定义 Key 线上启用条件：部署环境需要配置 `AI_MODEL`（以及可选的 `AI_BASE_URL`、`AI_VISION_MODEL`、`AI_PROVIDER_NAME`），**不需要**配置 `AI_API_KEY`。当前线上尚未设置 `AI_MODEL`，因此页面会显示“站点尚未配置模型，无法使用自定义 Key”；配置后无需再次改代码，重新发布/重启使环境生效即可。
 - 真实火山方舟调用、线上任意题变式、真实班级 CSV、真实服务商自定义 Key：**待验证**（尚未配置模型/真实 Key）。没有伪造的线上结果或准确率数据。
 - 真人试用：**待验证**。试用方案与记录模板见 `试用方案与录屏脚本.md`。
 
