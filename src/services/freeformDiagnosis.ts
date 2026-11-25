@@ -1,6 +1,6 @@
 import { knowledgeNodes } from '../data/knowledge';
-import { parseFreeformAiResult, parseOcrResult } from '../engine/freeformSchema';
-import type { FreeformAiResult, OcrResult } from '../types';
+import { parseFreeformAiResult, parseOcrResult, parseVariantList } from '../engine/freeformSchema';
+import type { FreeformAiResult, FreeformVariantCandidate, OcrResult } from '../types';
 
 export type FreeformFailureCode =
   | 'ai-not-configured'
@@ -27,6 +27,7 @@ export interface FreeformFailure {
 
 export type FreeformDiagnosisResponse = { ok: true; result: FreeformAiResult } | FreeformFailure;
 export type OcrResponse = { ok: true; result: OcrResult } | FreeformFailure;
+export type VariantCandidateResponse = { ok: true; variants: FreeformVariantCandidate[] } | FreeformFailure;
 
 export interface AiHealth {
   ai: boolean;
@@ -145,6 +146,36 @@ export async function requestFreeformDiagnosis(input: {
   const result = parseFreeformAiResult(record.result, validNodeIds);
   if (!result) return failure('invalid-schema');
   return { ok: true, result };
+}
+
+/** 补充生成同错因变式候选；候选仍要经过本地复算才会展示。 */
+export async function requestVariantCandidates(input: {
+  question: string;
+  errorReason: string;
+  knowledgePoint: string;
+  count: number;
+  excludeStems: string[];
+}): Promise<VariantCandidateResponse> {
+  const posted = await postJson('/api/freeform-variants', input, 30000);
+  if (isFailure(posted)) return posted;
+
+  const { response, payload } = posted;
+  const record = isRecord(payload) ? payload : {};
+
+  if (response.ok && record.status === 'insufficient-evidence') {
+    return failure(
+      'insufficient-evidence',
+      payloadText(record.message) || '模型没有生成可用于独立复算的变式。',
+    );
+  }
+  if (!response.ok) return mapHttpFailure(response, payload);
+
+  const result = isRecord(record.result) ? record.result : {};
+  const variants = parseVariantList(result.variants, 1, 3);
+  if (!variants) {
+    return failure('invalid-schema', '变式候选结构不合格，未生成可展示的题目。');
+  }
+  return { ok: true, variants };
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {

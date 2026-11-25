@@ -1,4 +1,10 @@
-import type { AiClaim, ClaimKind, FreeformAiResult, OcrResult } from '../types';
+import type {
+  AiClaim,
+  ClaimKind,
+  FreeformAiResult,
+  FreeformVariantCandidate,
+  OcrResult,
+} from '../types';
 
 const claimKinds = new Set<ClaimKind>(['arithmetic', 'equation', 'set', 'answer', 'quote']);
 const confidences = new Set(['high', 'medium', 'low']);
@@ -50,6 +56,27 @@ function parseVariant(value: unknown): { stem: string; answer: string } | null {
   return { stem, answer };
 }
 
+/**
+ * 解析变式候选列表。
+ * undefined 返回 null，调用方可以回退到旧的单题 variant 字段；
+ * 结构不合法也返回 null，由上层降级。
+ */
+export function parseVariantList(
+  value: unknown,
+  min = 1,
+  max = 3,
+): FreeformVariantCandidate[] | null {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return null;
+  const variants: FreeformVariantCandidate[] = [];
+  for (const item of value.slice(0, max)) {
+    const parsed = parseVariant(item);
+    if (!parsed) return null;
+    variants.push(parsed);
+  }
+  return variants.length >= min ? variants : null;
+}
+
 function parseIndex(value: unknown): number | null | undefined {
   if (value === null) return null;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return undefined;
@@ -74,6 +101,9 @@ export function parseFreeformAiResult(
   if (uncertainty === null) return null;
 
   if (insufficientEvidence) {
+    const fallbackVariant = parseVariant(entry.variant);
+    const variants = parseVariantList(entry.variants)
+      ?? (fallbackVariant ? [fallbackVariant] : []);
     return {
       correctAnswer: text(entry.correctAnswer, 200, true) ?? '',
       standardSteps: stringList(entry.standardSteps, 8, 300, true) ?? [],
@@ -82,7 +112,8 @@ export function parseFreeformAiResult(
       reason: text(entry.reason, 400, true) ?? '证据不足，未生成确定结论',
       knowledgePoint: text(entry.knowledgePoint, 80, true) ?? '',
       knowledgeNodeId: null,
-      variant: parseVariant(entry.variant) ?? { stem: '', answer: '' },
+      variant: fallbackVariant ?? variants[0] ?? { stem: '', answer: '' },
+      variants,
       confidence,
       claims: parseClaims(entry.claims) ?? [],
       insufficientEvidence: true,
@@ -96,7 +127,9 @@ export function parseFreeformAiResult(
   const stepQuote = text(entry.stepQuote, 300, true);
   const reason = text(entry.reason, 400);
   const knowledgePoint = text(entry.knowledgePoint, 80);
-  const variant = parseVariant(entry.variant);
+  const singleVariant = parseVariant(entry.variant);
+  const variants = parseVariantList(entry.variants) ?? (singleVariant ? [singleVariant] : null);
+  const variant = singleVariant ?? variants?.[0] ?? null;
   const claims = parseClaims(entry.claims);
   if (
     correctAnswer === null
@@ -106,6 +139,8 @@ export function parseFreeformAiResult(
     || reason === null
     || knowledgePoint === null
     || variant === null
+    || variants === null
+    || variants.length === 0
     || claims === null
   ) {
     return null;
@@ -125,6 +160,7 @@ export function parseFreeformAiResult(
     knowledgePoint,
     knowledgeNodeId: nodeId,
     variant,
+    variants,
     confidence,
     claims,
     insufficientEvidence: false,
