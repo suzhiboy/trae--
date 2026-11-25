@@ -583,11 +583,19 @@ function writeModelError(response, error, mode = 'site') {
 }
 
 function serveStatic(request, response, pathname) {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    // 非法路径编码属于请求错误，返回 400 并结束本次响应，不能让异常冒到进程级。
+    writeJson(response, 400, { error: 'invalid-request' });
+    return;
+  }
   if (!existsSync(DIST)) {
     writeJson(response, 404, { error: 'not-found' });
     return;
   }
-  const relative = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, '');
+  const relative = normalize(decoded).replace(/^([/\\])+/, '');
   let file = join(DIST, relative);
   if (!file.startsWith(DIST) || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(DIST, 'index.html');
@@ -608,7 +616,13 @@ function serveStatic(request, response, pathname) {
 }
 
 const server = createServer(async (request, response) => {
-  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+  let url;
+  try {
+    url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+  } catch {
+    writeJson(response, 400, { error: 'invalid-request' });
+    return;
+  }
 
   if (url.pathname === '/api/health') {
     writeJson(response, 200, {
