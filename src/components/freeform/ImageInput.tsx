@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, RotateCcw, ScanSearch } from 'lucide-react';
 import { recordAiFailure, recordAiSuccess } from '../../services/aiCredential';
 import { requestImageRecognition, type FreeformFailure } from '../../services/freeformDiagnosis';
-import type { AiCredential, OcrResult } from '../../types';
+import type { AiCredential, AiRequestCredential, OcrResult } from '../../types';
 
 export default function ImageInput({
   disabled,
   credential,
+  visionModel,
   onStart,
   onRecognized,
   onError,
   onFileSelected,
 }: {
   disabled: boolean;
-  credential: AiCredential | null;
+  credential: AiCredential | AiRequestCredential | null;
+  visionModel: string;
   onStart: () => void;
   onRecognized: (result: OcrResult) => void;
   onError: (failure: FreeformFailure) => void;
@@ -56,6 +58,10 @@ export default function ImageInput({
 
   const recognize = async () => {
     if (!file || busy || disabled) return;
+    if (!visionModel) {
+      setLocalError('当前设置没有可用模型，无法识别图片。请先在「AI 设置」选择供应商并填写文本或图片模型。');
+      return;
+    }
     if (!credential) {
       setLocalError('已选择自定义 Key，但尚未启用。请先在「AI 设置」中填写并启用，或切回站点配置。');
       return;
@@ -119,7 +125,7 @@ export default function ImageInput({
           type="button"
           className="outline-button freeform-image__recognize"
           onClick={recognize}
-          disabled={disabled || busy}
+          disabled={disabled || busy || !visionModel}
         >
           <ScanSearch aria-hidden="true" />
           {busy ? '正在识别…' : '识别图片'}
@@ -128,7 +134,10 @@ export default function ImageInput({
 
       {localError && <p className="freeform-image__error" role="alert">{localError}</p>}
       <p className="freeform-image__note">
-        图片会发送到服务端模型做转录，仅用于本次识别；不会写入本机历史记录。
+        {visionModel
+          ? `图片识别会使用 ${visionModel}。若该模型不支持图片，请在「AI 设置」填写图片模型 ID；文本诊断不受影响。`
+          : '当前设置没有可用模型，图片识别不可用。请先在「AI 设置」选择供应商并填写模型；文本诊断不受影响。'}
+        图片仅用于本次识别，不会写入本机历史记录。
         使用自定义 Key 时，Key 只随本次请求转发，不保存在图片或识别结果里。
       </p>
     </div>

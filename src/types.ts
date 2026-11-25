@@ -151,9 +151,45 @@ export type VerificationState = 'verified' | 'conflict' | 'unverified';
 /** 每次 AI 请求显式选择凭证；自定义 Key 只存在于当前页面内存。 */
 export type AiCredentialMode = 'site' | 'custom';
 
+/** 供应商协议：名称、模型和协议是三个独立配置。 */
+export type AiProtocol = 'openai' | 'anthropic';
+
+/** 服务端公开的供应商信息；不包含任何 Key 或用户凭证。 */
+export interface AiProviderInfo {
+  id: string;
+  label: string;
+  protocol: AiProtocol;
+  /** 实际接收请求的域名。 */
+  domain: string;
+  /** Base URL 的路径前缀，例如 /v1 或 /api/v3。 */
+  basePath: string;
+  textModels: string[];
+  visionModels: string[];
+  suggestedTextModels: string[];
+  suggestedVisionModels: string[];
+  siteKey: boolean;
+  customKey: boolean;
+  isDefault: boolean;
+}
+
+export interface AiCredentialBase {
+  providerId?: string;
+  providerLabel?: string;
+  protocol?: AiProtocol;
+  textModel?: string;
+  visionModel?: string;
+  revision?: number;
+}
+
+/** 兼容旧调用：只描述站点/自定义模式与 Key。 */
 export type AiCredential =
-  | { mode: 'site' }
-  | { mode: 'custom'; apiKey: string };
+  | (AiCredentialBase & { mode: 'site' })
+  | (AiCredentialBase & { mode: 'custom'; apiKey: string });
+
+/** 新请求使用的完整快照；revision 用于丢弃切换设置后才返回的旧结果。 */
+export type AiRequestCredential =
+  | (AiCredentialBase & { mode: 'site'; revision: number })
+  | (AiCredentialBase & { mode: 'custom'; apiKey: string; revision: number });
 
 /** 变式候选；答案必须通过本地复算后才允许展示。 */
 export interface FreeformVariantCandidate {

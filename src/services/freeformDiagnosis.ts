@@ -2,6 +2,8 @@ import { knowledgeNodes } from '../data/knowledge';
 import { parseFreeformAiResult, parseOcrResult, parseVariantList } from '../engine/freeformSchema';
 import type {
   AiCredential,
+  AiProviderInfo,
+  AiRequestCredential,
   FreeformAiResult,
   FreeformVariantCandidate,
   OcrResult,
@@ -13,12 +15,20 @@ export type FreeformFailureCode =
   | 'ai-model-not-configured'
   | 'custom-key-required'
   | 'custom-key-invalid'
+  | 'custom-key-not-allowed'
+  | 'unknown-provider'
+  | 'provider-override-rejected'
+  | 'invalid-model'
   | 'timeout'
   | 'rate-limited'
   | 'auth-failed'
   | 'model-not-found'
   | 'bad-request'
   | 'vision-model-required'
+  | 'truncated'
+  | 'upstream-redirect'
+  | 'invalid-response'
+  | 'empty-content'
   | 'upstream'
   | 'network'
   | 'invalid-request'
@@ -45,6 +55,9 @@ export interface AiHealth {
   model?: string | null;
   visionModel?: string | null;
   customKeyReady?: boolean;
+  customKeyAvailable?: boolean;
+  defaultProviderId?: string;
+  providers?: AiProviderInfo[];
 }
 
 const failureMessages: Record<FreeformFailureCode, string> = {
@@ -52,12 +65,20 @@ const failureMessages: Record<FreeformFailureCode, string> = {
   'ai-model-not-configured': '站点尚未配置模型 ID，无法使用自定义 Key。请管理员设置服务端 AI_MODEL 后再试。',
   'custom-key-required': '已选择自定义 Key，但还没有启用。请先在「AI 设置」里填写并启用，或切回站点配置。',
   'custom-key-invalid': '自定义 API Key 无效或没有权限。请检查 Key 后重新启用；系统不会自动切换到站点账户。',
+  'custom-key-not-allowed': '该供应商不允许使用自定义 Key。请选择其它供应商，或使用站点配置。',
+  'unknown-provider': '所选供应商未在服务端登记。请刷新页面；如果仍然失败，请联系管理员检查 AI_PROVIDERS。',
+  'provider-override-rejected': '请求包含了客户端指定的服务地址，已被拒绝。地址只能由服务端配置决定。',
+  'invalid-model': '模型 ID 格式不合法。请填写服务商控制台里的模型名称、接入点 ID 或中转站别名。',
   timeout: '模型服务超时，未生成结论。可以重试，或先用内置题。',
   'rate-limited': '模型服务限流，请稍后重试。',
   'auth-failed': '站点 AI 鉴权失败。请检查服务端密钥；页面不会显示密钥。',
-  'model-not-found': '模型 ID 不存在或未开通。请检查服务端 AI_MODEL / AI_VISION_MODEL。',
-  'bad-request': '模型服务拒绝了请求。请检查 AI_MODEL 是否为支持 JSON 输出的对话模型。',
-  'vision-model-required': '当前模型不支持图片输入。请配置支持多模态的 AI_VISION_MODEL。',
+  'model-not-found': '模型不可用或 ID 不存在。请检查「AI 设置」中的模型 ID，或服务端配置的模型范围。',
+  'bad-request': '模型服务拒绝了请求。请检查模型 ID 与协议是否匹配。',
+  'vision-model-required': '当前模型不支持图片输入。请在「AI 设置」填写支持图片的模型 ID，或改用支持图片的供应商；文本诊断不受影响。',
+  truncated: '模型响应被截断（达到最大输出长度），未生成结论。请缩短步骤或重试。',
+  'upstream-redirect': '上游返回了跳转。为避免凭证被转发到其他域名，请求已中止。请检查供应商 Base URL。',
+  'invalid-response': '供应商返回了无法解析的响应，未生成结论。',
+  'empty-content': '供应商返回了空响应，未生成结论。',
   upstream: '模型服务暂时不可用，请稍后重试。',
   network: '网络中断，请求没有发送成功。请检查连接后重试。',
   'invalid-request': '题目、答案或步骤不符合要求，请检查后重试。',
@@ -123,6 +144,10 @@ function mapHttpFailure(response: Response, payload: unknown): FreeformFailure {
 
   if (code === 'custom-key-invalid') return failure('custom-key-invalid');
   if (code === 'custom-key-required') return failure('custom-key-required');
+  if (code === 'custom-key-not-allowed') return failure('custom-key-not-allowed');
+  if (code === 'unknown-provider') return failure('unknown-provider');
+  if (code === 'provider-override-rejected') return failure('provider-override-rejected');
+  if (code === 'invalid-model') return failure('invalid-model');
   if (code === 'ai-model-not-configured') return failure('ai-model-not-configured');
   if (response.status === 503 || code === 'ai-not-configured') return failure('ai-not-configured');
   if (response.status === 429 || code === 'rate-limited') return failure('rate-limited', undefined, retryAfter);
@@ -130,7 +155,11 @@ function mapHttpFailure(response: Response, payload: unknown): FreeformFailure {
   if (code === 'auth-failed') return failure('auth-failed');
   if (code === 'model-not-found') return failure('model-not-found');
   if (code === 'bad-request') return failure('bad-request');
-  if (code === 'vision-model-required') return failure('vision-model-required');
+  if (code === 'vision-model-required' || code === 'unsupported-image') return failure('vision-model-required');
+  if (code === 'truncated') return failure('truncated');
+  if (code === 'upstream-redirect') return failure('upstream-redirect');
+  if (code === 'invalid-response') return failure('invalid-response');
+  if (code === 'empty-content') return failure('empty-content');
   if (response.status === 413) return failure('image-too-large');
   if (response.status === 400) return failure('invalid-request');
   if (response.status === 404) {
@@ -147,7 +176,7 @@ export async function requestFreeformDiagnosis(input: {
   question: string;
   finalAnswer: string;
   steps: string[];
-}, credential: AiCredential): Promise<FreeformDiagnosisResponse> {
+}, credential: AiCredential | AiRequestCredential): Promise<FreeformDiagnosisResponse> {
   const posted = await postJson('/api/freeform-diagnose', {
     ...input,
     nodes: knowledgeNodes.map((node) => ({ id: node.id, label: node.label })),
@@ -175,7 +204,7 @@ export async function requestVariantCandidates(input: {
   knowledgePoint: string;
   count: number;
   excludeStems: string[];
-}, credential: AiCredential): Promise<VariantCandidateResponse> {
+}, credential: AiCredential | AiRequestCredential): Promise<VariantCandidateResponse> {
   const posted = await postJson('/api/freeform-variants', {
     ...input,
     ...credentialPayload(credential),
@@ -236,7 +265,7 @@ async function compressImage(file: File): Promise<string> {
 /** 图片识别：返回可编辑的题目、答案、步骤，由学生确认后再诊断。 */
 export async function requestImageRecognition(
   file: File,
-  credential: AiCredential,
+  credential: AiCredential | AiRequestCredential,
 ): Promise<OcrResponse> {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
     return failure('invalid-image');
@@ -269,6 +298,40 @@ export async function requestImageRecognition(
   return { ok: true, result };
 }
 
+function stringItems(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string').slice(0, 20)
+    : [];
+}
+
+/** 只读取公开字段；即使服务端误传 Key，也不会进入前端状态。 */
+function parseProviders(value: unknown): AiProviderInfo[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const providers: AiProviderInfo[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) continue;
+    const id = payloadText(item.id);
+    const label = payloadText(item.label);
+    const protocol = item.protocol === 'anthropic' ? 'anthropic' : item.protocol === 'openai' ? 'openai' : null;
+    if (!id || !label || !protocol) continue;
+    providers.push({
+      id,
+      label,
+      protocol,
+      domain: payloadText(item.domain),
+      basePath: payloadText(item.basePath),
+      textModels: stringItems(item.textModels),
+      visionModels: stringItems(item.visionModels),
+      suggestedTextModels: stringItems(item.suggestedTextModels),
+      suggestedVisionModels: stringItems(item.suggestedVisionModels),
+      siteKey: item.siteKey === true,
+      customKey: item.customKey === true,
+      isDefault: item.isDefault === true,
+    });
+  }
+  return providers.length > 0 ? providers : undefined;
+}
+
 /** 首页状态条用：未配置时页面明确说明，不假装 AI 可用。 */
 export async function checkAiHealth(): Promise<AiHealth> {
   const unavailable: AiHealth = {
@@ -284,7 +347,7 @@ export async function checkAiHealth(): Promise<AiHealth> {
     if (!response.ok) return unavailable;
     const payload: unknown = await response.json();
     const record = isRecord(payload) ? payload : {};
-    return {
+    const health: AiHealth = {
       ai: record.ai === true,
       vision: record.vision === true,
       provider: typeof record.provider === 'string' ? record.provider : null,
@@ -292,6 +355,13 @@ export async function checkAiHealth(): Promise<AiHealth> {
       visionModel: typeof record.visionModel === 'string' ? record.visionModel : null,
       customKeyReady: record.customKeyReady === true,
     };
+    const providers = parseProviders(record.providers);
+    if (providers) {
+      health.providers = providers;
+      if (typeof record.customKeyAvailable === 'boolean') health.customKeyAvailable = record.customKeyAvailable;
+      if (typeof record.defaultProviderId === 'string') health.defaultProviderId = record.defaultProviderId;
+    }
+    return health;
   } catch {
     return unavailable;
   }

@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   activeAiCredential,
+  activeAiRequest,
   clearAiKey,
   credentialPayload,
   editAiKey,
+  editAiModel,
+  editAiVisionModel,
   enableAiKey,
   getAiSettings,
   initialAiSettingsState,
@@ -14,7 +17,10 @@ import {
   recordAiSuccess,
   resetAiSettings,
   selectAiMode,
+  selectAiProvider,
+  syncAiProviders,
 } from './aiCredential';
+import type { AiProviderInfo } from '../types';
 
 describe('自定义 Key 内存状态', () => {
   beforeEach(() => {
@@ -170,5 +176,171 @@ describe('自定义 Key 内存状态', () => {
     expect(localStorageSpy.getItem).not.toHaveBeenCalled();
     expect(sessionStorageSpy.setItem).not.toHaveBeenCalled();
     expect(sessionStorageSpy.getItem).not.toHaveBeenCalled();
+  });
+});
+
+const providers: AiProviderInfo[] = [
+  {
+    id: 'site',
+    label: '站点火山',
+    protocol: 'openai',
+    domain: 'ark.cn-beijing.volces.com',
+    basePath: '/api/v3',
+    textModels: ['site-model'],
+    visionModels: ['site-vision'],
+    suggestedTextModels: [],
+    suggestedVisionModels: [],
+    siteKey: true,
+    customKey: true,
+    isDefault: true,
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    protocol: 'openai',
+    domain: 'api.deepseek.com',
+    basePath: '/v1',
+    textModels: [],
+    visionModels: [],
+    suggestedTextModels: ['deepseek-chat'],
+    suggestedVisionModels: [],
+    siteKey: false,
+    customKey: true,
+    isDefault: false,
+  },
+  {
+    id: 'claude',
+    label: 'Anthropic (Claude)',
+    protocol: 'anthropic',
+    domain: 'api.anthropic.com',
+    basePath: '',
+    textModels: [],
+    visionModels: [],
+    suggestedTextModels: ['claude-sonnet-4-5'],
+    suggestedVisionModels: ['claude-sonnet-4-5'],
+    siteKey: false,
+    customKey: true,
+    isDefault: false,
+  },
+];
+
+describe('多供应商设置状态', () => {
+  beforeEach(() => {
+    resetAiSettings();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('健康目录到达后选中默认供应商并填入示例模型', () => {
+    syncAiProviders(providers, 'site');
+
+    expect(getAiSettings()).toMatchObject({
+      mode: 'site',
+      providerId: 'site',
+      textModel: 'site-model',
+      visionModel: 'site-vision',
+    });
+    const credential = activeAiRequest();
+    expect(credential).toMatchObject({ mode: 'site', providerId: 'site' });
+    expect(credential?.mode === 'site' && 'apiKey' in credential).toBe(false);
+  });
+
+  it('切换供应商会清空旧 Key，请求载荷带供应商、模型和图片模型', () => {
+    syncAiProviders(providers, 'site');
+    selectAiMode('custom');
+    selectAiProvider(providers[1]);
+    editAiKey('sk-deepseek');
+    enableAiKey();
+
+    expect(getAiSettings()).toMatchObject({
+      mode: 'custom',
+      providerId: 'deepseek',
+      textModel: 'deepseek-chat',
+      key: 'sk-deepseek',
+      enabled: true,
+    });
+
+    const credential = activeAiRequest();
+    expect(credential).toMatchObject({
+      mode: 'custom',
+      providerId: 'deepseek',
+      textModel: 'deepseek-chat',
+      apiKey: 'sk-deepseek',
+    });
+    expect(credentialPayload(credential!)).toEqual({
+      credentialMode: 'custom',
+      providerId: 'deepseek',
+      apiKey: 'sk-deepseek',
+      model: 'deepseek-chat',
+    });
+
+    selectAiProvider(providers[2]);
+    expect(getAiSettings()).toMatchObject({
+      providerId: 'claude',
+      textModel: 'claude-sonnet-4-5',
+      visionModel: 'claude-sonnet-4-5',
+      key: '',
+      enabled: false,
+      status: 'idle',
+    });
+    expect(activeAiRequest()).toBeNull();
+  });
+
+  it('编辑模型或图片模型会停用并清除旧连接状态', () => {
+    syncAiProviders(providers, 'site');
+    selectAiMode('custom');
+    selectAiProvider(providers[1]);
+    editAiKey('sk-test');
+    enableAiKey();
+    markAiConnected();
+    expect(getAiSettings().status).toBe('connected');
+
+    editAiModel('deepseek-reasoner');
+    expect(getAiSettings().enabled).toBe(false);
+    expect(getAiSettings().status).toBe('idle');
+
+    editAiKey('sk-test');
+    enableAiKey();
+    markAiConnected();
+    editAiVisionModel('vision-model');
+    expect(getAiSettings().enabled).toBe(false);
+    expect(getAiSettings().status).toBe('idle');
+  });
+
+  it('旧请求晚返回时不会把新供应商标成连接成功', () => {
+    syncAiProviders(providers, 'site');
+    selectAiMode('custom');
+    selectAiProvider(providers[1]);
+    editAiKey('sk-old');
+    enableAiKey();
+    const stale = activeAiRequest();
+    expect(stale).not.toBeNull();
+
+    selectAiProvider(providers[2]);
+    recordAiSuccess(stale!);
+    expect(getAiSettings().status).toBe('idle');
+    expect(getAiSettings().providerId).toBe('claude');
+
+    recordAiFailure(stale!, 'custom-key-invalid', '旧 Key 无效');
+    expect(getAiSettings().status).toBe('idle');
+  });
+
+  it('同步健康目录不会覆盖用户当前选择', () => {
+    syncAiProviders(providers, 'site');
+    selectAiMode('custom');
+    selectAiProvider(providers[2]);
+    syncAiProviders(providers, 'site');
+    expect(getAiSettings().providerId).toBe('claude');
+  });
+
+  it('站点模式的载荷不包含 Key 与模型', () => {
+    syncAiProviders(providers, 'site');
+    const credential = activeAiRequest();
+    expect(credentialPayload(credential!)).toEqual({
+      credentialMode: 'site',
+      providerId: 'site',
+    });
   });
 });

@@ -4,7 +4,7 @@ import { getPracticeGroup, type PracticeGroup } from '../data/practiceGroups';
 import { questionRules } from '../data/practiceRules';
 import { diagnoseAttempt } from '../engine/attempt';
 import { summarizeSession } from '../engine/session';
-import { activeAiCredential, useAiSettings } from '../services/aiCredential';
+import { activeAiRequest, useAiSettings } from '../services/aiCredential';
 import { fetchAiDiagnosis } from '../services/aiDiagnosis';
 import type {
   AttemptDiagnosis,
@@ -567,7 +567,7 @@ export function usePracticeSession() {
   // 凭证变化后允许同一题重新尝试；Key 本身不出现在请求键或日志里。
   useEffect(() => {
     aiRequested.current.clear();
-  }, [aiSettings.mode, aiSettings.enabled, aiSettings.key]);
+  }, [aiSettings.mode, aiSettings.enabled, aiSettings.key, aiSettings.providerId, aiSettings.textModel, aiSettings.visionModel]);
 
   useEffect(() => {
     if (state.phase === 'idle') {
@@ -615,7 +615,7 @@ export function usePracticeSession() {
     if (currentDiagnosis.status !== 'unknown' || currentDiagnosis.source !== 'rules') return;
 
     // 自定义模式未启用时宁可不发请求，也不回退到站点账户。
-    const credential = activeAiCredential();
+    const credential = activeAiRequest();
     if (!credential) return;
 
     const draft = state.drafts[state.currentIndex];

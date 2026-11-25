@@ -1,6 +1,6 @@
 import { knowledgeNodes } from '../data/knowledge';
 import { buildLearningPath } from '../engine/diagnose';
-import type { AttemptDiagnosis, AiCredential, Question } from '../types';
+import type { AttemptDiagnosis, AiCredential, AiRequestCredential, Question } from '../types';
 import { credentialPayload, recordAiFailure, recordAiSuccess } from './aiCredential';
 
 const ENDPOINT = '/api/diagnose';
@@ -51,7 +51,7 @@ export async function fetchAiDiagnosis(
   question: Question,
   finalAnswer: string,
   steps: string[],
-  credential: AiCredential | null,
+  credential: AiCredential | AiRequestCredential | null,
 ): Promise<AttemptDiagnosis | null> {
   if (!credential || typeof fetch !== 'function') return null;
 

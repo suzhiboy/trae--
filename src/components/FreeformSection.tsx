@@ -1,15 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RotateCcw, ScanSearch, Settings2, ShieldQuestion } from 'lucide-react';
 import { planFreeformDiagnosis } from '../engine/freeform';
 import { summarizeDiagnoses } from '../engine/session';
 import { buildAiDiagnosis } from '../engine/verify';
 import { collectVerifiedVariants } from '../engine/variant';
 import {
-  activeAiCredential,
+  activeAiRequest,
   recordAiFailure,
   recordAiSuccess,
   useAiSettings,
 } from '../services/aiCredential';
+import { providersFromHealth } from '../services/aiProvider';
 import {
   checkAiHealth,
   requestFreeformDiagnosis,
@@ -25,6 +26,7 @@ import {
 } from '../services/freeformRecords';
 import type {
   AiCredential,
+  AiRequestCredential,
   DiagnosisRecord,
   FreeformAiDiagnosis,
   FreeformResult,
@@ -85,6 +87,11 @@ export default function FreeformSection() {
   const [variantState, setVariantState] = useState<VariantPracticeState>(emptyVariantState);
   const [records, setRecords] = useState<DiagnosisRecord[]>(() => loadFreeformRecords());
   const aiSettings = useAiSettings();
+  const providers = useMemo(() => providersFromHealth(health), [health]);
+  const selectedProvider = providers.find((provider) => provider.id === aiSettings.providerId)
+    ?? providers.find((provider) => provider.isDefault)
+    ?? providers[0]
+    ?? null;
   const requestSeq = useRef(0);
   const ocrSeq = useRef(0);
   const variantSeq = useRef(0);
@@ -116,7 +123,7 @@ export default function FreeformSection() {
     submission: Submission,
     diagnosis: FreeformAiDiagnosis,
     initialCandidates: FreeformVariantCandidate[],
-    credential: AiCredential,
+    credential: AiCredential | AiRequestCredential,
     excludeStems: string[] = [],
   ) => {
     const seq = variantSeq.current + 1;
@@ -241,7 +248,7 @@ export default function FreeformSection() {
       return;
     }
 
-    const credential = activeAiCredential();
+    const credential = activeAiRequest();
     if (!credential) {
       setFailure({
         ok: false,
@@ -308,7 +315,7 @@ export default function FreeformSection() {
 
   const regenerateVariants = () => {
     if (!lastSubmission.current || !result || result.source !== 'ai' || !canGenerateVariants(result)) return;
-    const credential = activeAiCredential();
+    const credential = activeAiRequest();
     if (!credential) {
       setVariantState({
         status: 'error',
@@ -328,26 +335,32 @@ export default function FreeformSection() {
     );
   };
 
-  const credential = activeAiCredential();
+  const credential = activeAiRequest();
+  const providerName = selectedProvider?.label ?? health?.provider ?? '站点配置';
+  const siteModel = selectedProvider?.textModels[0] ?? health?.model ?? '';
   const healthLabel = health === null
     ? '正在检查 AI 配置…'
     : aiSettings.mode === 'custom'
-      ? aiSettings.enabled
-        ? aiSettings.status === 'connected'
-          ? '自定义 Key · 连接成功'
-          : aiSettings.status === 'invalid'
-            ? '自定义 Key · 需要检查'
-            : aiSettings.status === 'error'
-              ? '自定义 Key · 连接未完成'
-              : '自定义 Key · 已启用'
-        : '自定义 Key · 未启用'
-      : health.ai
-        ? `站点 AI 已配置${health.model ? ` · ${health.model}` : ''}`
-        : health.customKeyReady
+      ? aiSettings.status === 'connected'
+        ? `自定义 Key · ${providerName} · 已实际连接`
+        : aiSettings.status === 'invalid'
+          ? `自定义 Key · ${providerName} · 需要检查`
+          : aiSettings.status === 'error'
+            ? `自定义 Key · ${providerName} · 连接未完成`
+            : aiSettings.enabled
+              ? `自定义 Key · ${providerName} · 已启用`
+              : `自定义 Key · ${providerName} · 未启用`
+      : selectedProvider?.siteKey || health.ai
+        ? `站点配置 · ${providerName}${siteModel ? ` · ${siteModel}` : ''}`
+        : health.customKeyReady || health.customKeyAvailable
           ? '站点默认 Key 未配置 · 可填自己的 Key'
           : 'AI 未配置 · 内置 12 题仍可离线诊断';
-  const healthOn = (aiSettings.mode === 'site' && health?.ai === true)
-    || (aiSettings.mode === 'custom' && aiSettings.status === 'connected');
+  const healthOn = aiSettings.mode === 'custom'
+    ? aiSettings.status === 'connected'
+    : selectedProvider?.siteKey === true || health?.ai === true;
+  const visionModel = aiSettings.mode === 'custom'
+    ? aiSettings.visionModel.trim() || aiSettings.textModel.trim()
+    : selectedProvider?.visionModels[0] || selectedProvider?.textModels[0] || health?.visionModel || '';
 
   const toggleAiSettings = () => {
     setAiSettingsOpen((open) => {
@@ -398,6 +411,7 @@ export default function FreeformSection() {
       <AiSettings
         open={aiSettingsOpen}
         health={health}
+        providers={providers}
         onClose={() => setAiSettingsOpen(false)}
       />
 
@@ -470,6 +484,7 @@ export default function FreeformSection() {
           <ImageInput
             disabled={busy}
             credential={credential}
+            visionModel={visionModel}
             onStart={handleOcrStart}
             onRecognized={handleOcrResult}
             onError={handleOcrError}

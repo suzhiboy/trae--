@@ -7,6 +7,7 @@ import { judgeVariantAnswer } from '../../engine/variant';
 import { requestFreeformDiagnosis } from '../../services/freeformDiagnosis';
 import type {
   AiCredential,
+  AiRequestCredential,
   FreeformAiDiagnosis,
   VerifiedFreeformVariant,
   VariantErrorVerdict,
@@ -56,7 +57,7 @@ function VariantItem({
   index: number;
   variant: VerifiedFreeformVariant;
   originalDiagnosis: FreeformAiDiagnosis;
-  credential: AiCredential | null;
+  credential: AiCredential | AiRequestCredential | null;
 }) {
   const [answer, setAnswer] = useState('');
   const [step, setStep] = useState('');
@@ -281,7 +282,7 @@ export default function VariantPractice({
 }: {
   state: VariantPracticeState;
   originalDiagnosis: FreeformAiDiagnosis;
-  credential: AiCredential | null;
+  credential: AiCredential | AiRequestCredential | null;
   onRetry: () => void;
 }) {
   if (state.status === 'loading') {
