@@ -69,6 +69,7 @@ export default function Hero({ loaded }: { loaded: boolean }) {
   }, []);
 
   const idle = useDeferredScene(loaded && desktop && !reducedMotion);
+  const show3D = idle && desktop && !reducedMotion;
 
   useEffect(() => {
     if (loaded && title.current) return initHeroTitle(title.current, reducedMotion);
@@ -76,7 +77,7 @@ export default function Hero({ loaded }: { loaded: boolean }) {
 
   return (
     <section className="hero hero--case" id="home" aria-labelledby="hero-title">
-      {idle ? (
+      {show3D ? (
         <Suspense fallback={<HeroSceneStatic />}>
           <HeroScene />
         </Suspense>

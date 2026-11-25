@@ -52,7 +52,7 @@ export default function Footer() {
       </div>
       <div className="footer__bottom">
         <span>© 2026 KNOWLEDGE DETECTIVE</span>
-        <a href="#home" className="roll-trigger"><TextRoll text="BACK TO TOP" /></a>
+        <a href="#home" className="roll-trigger" aria-label="BACK TO TOP"><TextRoll text="BACK TO TOP" /></a>
         <span>本地规则 · 证据优先 · 无需 API Key</span>
       </div>
     </footer>
