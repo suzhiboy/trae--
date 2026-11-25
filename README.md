@@ -293,7 +293,7 @@ node server.mjs
 ## 当前验证状态
 
 - 自动化测试：`npm test` 通过 **528 项**（22 个测试文件）。原有 458 项全部保留；阶段 4 新增 70 项：供应商配置 14、协议适配 19、多供应商集成 24、前端设置状态 6、连接测试/模型列表 7。没有删除或弱化任何既有测试。
-- 阶段 4 主包：`npm run build` 输出入口 JS **566.63 kB / 186.07 kB gzip**，仍低于 200 kB 目标；three.js、xyflow、KaTeX、Swiper 均为按需异步 chunk。
+- 阶段 4 主包：`npm run build` 输出入口 JS **566.70 kB / 186.08 kB gzip**，仍低于 200 kB 目标；three.js、xyflow、KaTeX、Swiper 均为按需异步 chunk。
 - 阶段 3 Lighthouse（移动端，同一构建连续 3 次，本地预览）：Performance 71 / 94 / 92（中位数 92），Accessibility 三次均 **100**，FCP/LCP 中位数 **2214 ms**（最差 3807 ms），TBT 中位数 **150 ms**；改前同条件三次为 Performance 53 / 53 / 56、Accessibility 88、LCP 约 4805 ms。
 - 阶段 3 三宽度全流程（375 / 768 / 1440，真实 Chrome）：
   - 首页 → 比较草稿（点击重新诊断，甲定位到第 1 行）→ 练习函数题组（提交 → 变式答对 → 第二题 → 报告）→ 任意题（命中内置题，不发请求）→ 教师视图（粘贴 1 行 CSV，聚合出 1 名学生与 1 个错因）。
