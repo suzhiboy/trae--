@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Loader from './components/Loader';
 import Menu from './components/Menu';
 import Hero from './components/Hero';
+import CompareSection from './components/CompareSection';
+import PracticeSection from './components/practice/PracticeSection';
 import Highlights from './components/Highlights';
 import FeaturedWorks from './components/FeaturedWorks';
 import Expertise from './components/Expertise';
@@ -49,6 +51,8 @@ export default function App() {
       <div ref={root}>
         <main>
           <Hero loaded={loaded} />
+          <CompareSection />
+          <PracticeSection />
           <Highlights />
           <FeaturedWorks />
           <Expertise />

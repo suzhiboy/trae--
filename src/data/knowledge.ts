@@ -2,11 +2,31 @@ import type { KnowledgeEdge, KnowledgeNode, Question } from '../types';
 
 export const questions: Question[] = [
   {
+    id: 'set-union-basic',
+    stem: '设 U={1,2,3,4,5}，A={1,2,3}，B={2,4}，求 A∪B',
+    correctAnswer: '{1,2,3,4}',
+    subject: '高中数学',
+    difficulty: '基础',
+    module: '集合',
+    estimatedSeconds: 60,
+  },
+  {
+    id: 'set-complement-intersection',
+    stem: '设 U={1,2,3,4,5,6}，A={1,2,3,4}，B={3,4,5}，求 (A∩B) 在 U 中的补集',
+    correctAnswer: '{1,2,5,6}',
+    subject: '高中数学',
+    difficulty: '中等',
+    module: '集合',
+    estimatedSeconds: 90,
+  },
+  {
     id: 'function-negative-input',
     stem: '已知 f(x)=x²-2x+3，求 f(-1)',
     correctAnswer: '6',
     subject: '高中数学',
     difficulty: '基础',
+    module: '函数',
+    estimatedSeconds: 60,
   },
   {
     id: 'quadratic-equation-roots',
@@ -14,6 +34,8 @@ export const questions: Question[] = [
     correctAnswer: 'x=2或x=3',
     subject: '高中数学',
     difficulty: '基础',
+    module: '方程与不等式',
+    estimatedSeconds: 90,
   },
   {
     id: 'same-base-powers',
@@ -21,6 +43,8 @@ export const questions: Question[] = [
     correctAnswer: 'a^7',
     subject: '高中数学',
     difficulty: '基础',
+    module: '指数与对数',
+    estimatedSeconds: 60,
   },
   {
     id: 'logarithm-evaluation',
@@ -28,6 +52,26 @@ export const questions: Question[] = [
     correctAnswer: '3',
     subject: '高中数学',
     difficulty: '基础',
+    module: '指数与对数',
+    estimatedSeconds: 60,
+  },
+  {
+    id: 'radian-conversion',
+    stem: '将 150° 化为弧度',
+    correctAnswer: '5π/6',
+    subject: '高中数学',
+    difficulty: '基础',
+    module: '三角函数',
+    estimatedSeconds: 60,
+  },
+  {
+    id: 'special-angle-sum',
+    stem: '计算 sin(π/6)+cos(π/3)',
+    correctAnswer: '1',
+    subject: '高中数学',
+    difficulty: '基础',
+    module: '三角函数',
+    estimatedSeconds: 60,
   },
   {
     id: 'arithmetic-sequence-term',
@@ -35,6 +79,17 @@ export const questions: Question[] = [
     correctAnswer: '11',
     subject: '高中数学',
     difficulty: '基础',
+    module: '数列',
+    estimatedSeconds: 60,
+  },
+  {
+    id: 'arithmetic-sequence-sum',
+    stem: '等差数列 {aₙ} 中，a₁=2，公差 d=3，求前 5 项和 S₅',
+    correctAnswer: '40',
+    subject: '高中数学',
+    difficulty: '中等',
+    module: '数列',
+    estimatedSeconds: 90,
   },
   {
     id: 'classical-probability-coins',
@@ -42,6 +97,17 @@ export const questions: Question[] = [
     correctAnswer: '1/2',
     subject: '高中数学',
     difficulty: '中等',
+    module: '概率',
+    estimatedSeconds: 90,
+  },
+  {
+    id: 'classical-probability-die',
+    stem: '掷一枚公平六面骰，求点数大于 4 的概率',
+    correctAnswer: '1/3',
+    subject: '高中数学',
+    difficulty: '基础',
+    module: '概率',
+    estimatedSeconds: 60,
   },
 ];
 

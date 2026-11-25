@@ -1,72 +1,71 @@
+import { useId } from 'react';
 import { ArrowRight, Route } from 'lucide-react';
-import type { DiagnosisResult } from '../types';
 import { knowledgeNodes } from '../data/knowledge';
+import type { DiagnosisResult } from '../types';
 
 export default function LearningPath({
+  weakNodeIds,
+  learningPathIds,
+  steps,
+  confidence,
   result,
+  title = '建议补习顺序',
+  emptyText = '完成诊断后，这里会按知识依赖列出补习顺序。',
   expanded = false,
 }: {
-  result: DiagnosisResult | null;
+  weakNodeIds?: string[];
+  learningPathIds?: string[];
+  steps?: string[];
+  confidence?: DiagnosisResult['confidence'];
+  result?: DiagnosisResult | null;
+  title?: string;
+  emptyText?: string;
   expanded?: boolean;
 }) {
-  const pathIds = result && !result.isCorrect ? result.learningPathIds : [];
-  const hasPath = pathIds.length > 0;
+  const headingId = useId();
+  const weak = new Set(weakNodeIds ?? result?.weakNodeIds ?? []);
+  const pathIds = learningPathIds ?? result?.learningPathIds ?? [];
+  const recommendations = steps ?? result?.steps ?? [];
+  const level = confidence ?? result?.confidence;
 
   return (
-    <section className="panel p-5" aria-labelledby="learning-path-title">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="learning-path-title" className="section-title">
-          <Route className="h-5 w-5" strokeWidth={1.7} />
-          建议补习顺序
-        </h2>
-        {result?.confidence === 'low' && hasPath && (
-          <span className="text-xs font-medium text-vermilion">复习方向 · 尚未确认薄弱</span>
-        )}
+    <section className="practice-learning-path" aria-labelledby={headingId}>
+      <div className="practice-subheading">
+        <h2 id={headingId}><Route aria-hidden="true" />{title}</h2>
+        {level === 'low' && pathIds.length > 0 && <span>复习方向 · 尚未确认薄弱</span>}
       </div>
 
-      {!hasPath && (
-        <div className="border-t border-line py-5 text-sm text-muted">
-          {result?.isCorrect ? '答案正确，本次无需生成补习顺序。' : '完成诊断后，这里会按知识依赖列出补习顺序。'}
-        </div>
-      )}
-
-      {hasPath && result && (
-        <div className="result-enter">
-          <ol className="flex flex-wrap items-center gap-y-3 border-y border-line py-4">
+      {pathIds.length === 0 ? (
+        <p className="practice-learning-path__empty">{emptyText}</p>
+      ) : (
+        <>
+          <ol className="practice-path-list">
             {pathIds.map((id, index) => {
               const node = knowledgeNodes.find((item) => item.id === id);
-              const weak = result.weakNodeIds.includes(id);
+              const isWeak = weak.has(id);
               return (
-                <li key={id} className="flex items-center">
-                  {index > 0 && <ArrowRight className="mx-2 h-4 w-4 shrink-0 text-[#AAA69D]" strokeWidth={1.6} />}
-                  <div className={`rounded-md border px-3 py-2 ${weak ? 'border-vermilion bg-[#F8E8E1]' : 'border-line bg-white/50'}`}>
-                    <div className="flex items-center gap-2 text-sm font-bold text-ink">
-                      <span className={weak ? 'text-vermilion' : 'text-muted'}>{index + 1}</span>
-                      {node?.label ?? id}
-                    </div>
-                    <div className={`mt-0.5 text-[11px] font-medium ${weak ? 'text-vermilion' : 'text-muted'}`}>
-                      {weak ? '疑似薄弱' : '建议复习'}
-                    </div>
+                <li key={id}>
+                  {index > 0 && <ArrowRight aria-hidden="true" />}
+                  <div className={isWeak ? 'is-weak' : ''}>
+                    <span><b>{String(index + 1).padStart(2, '0')}</b>{node?.label ?? id}</span>
+                    <small>{isWeak ? '疑似薄弱' : '前置复习'}</small>
                   </div>
                 </li>
               );
             })}
           </ol>
 
-          <div className={`mt-4 grid gap-3 ${expanded ? '' : 'md:grid-cols-3'}`}>
-            {result.steps.slice(0, 3).map((step, index) => (
-              <div key={`${step}-${index}`} className="border-t border-line pt-3">
-                <div className="mb-1.5 text-xs font-semibold text-muted">第 {index + 1} 步</div>
-                <p className="text-sm leading-relaxed text-ink">{step}</p>
-                {expanded && pathIds[index] && (
-                  <p className="mt-2 text-xs leading-relaxed text-muted">
-                    对应知识点：{knowledgeNodes.find((node) => node.id === pathIds[index])?.label ?? pathIds[index]}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+          {recommendations.length > 0 && (
+            <div className={`practice-path-steps${expanded ? ' is-expanded' : ''}`}>
+              {recommendations.slice(0, 3).map((step, index) => (
+                <div key={`${step}-${index}`}>
+                  <span>STEP {String(index + 1).padStart(2, '0')}</span>
+                  <p>{step}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

@@ -220,12 +220,18 @@ export const nodeExtras: Record<string, NodeExtra> = {
 
 /* ---------- 题干 LaTeX 展示覆盖（不修改题库，仅前端渲染层） ---------- */
 export const stemLatex: Record<string, string> = {
+  'set-union-basic': '设 $U=\\{1,2,3,4,5\\}$，$A=\\{1,2,3\\}$，$B=\\{2,4\\}$，求 $A\\cup B$',
+  'set-complement-intersection': '设 $U=\\{1,2,3,4,5,6\\}$，$A=\\{1,2,3,4\\}$，$B=\\{3,4,5\\}$，求 $\\complement_U(A\\cap B)$',
   'function-negative-input': '已知 $f(x)=x^2-2x+3$，求 $f(-1)$',
   'quadratic-equation-roots': '解方程 $x^2-5x+6=0$',
   'same-base-powers': '计算 $a^3\\cdot a^4$（$a\\neq 0$）',
   'logarithm-evaluation': '计算 $\\log_2 8$',
+  'radian-conversion': '将 $150^{\\circ}$ 化为弧度',
+  'special-angle-sum': '计算 $\\sin\\frac{\\pi}{6}+\\cos\\frac{\\pi}{3}$',
   'arithmetic-sequence-term': '等差数列 $\\{a_n\\}$ 中，$a_1=3$，公差 $d=2$，求 $a_5$',
+  'arithmetic-sequence-sum': '等差数列 $\\{a_n\\}$ 中，$a_1=2$，公差 $d=3$，求前 $5$ 项和 $S_5$',
   'classical-probability-coins': '掷两枚公平硬币，求恰好出现一枚正面的概率',
+  'classical-probability-die': '掷一枚公平六面骰，求点数大于 $4$ 的概率',
 };
 
 /* ---------- 追问验证：薄弱节点 → 可再次验证的题目 ---------- */

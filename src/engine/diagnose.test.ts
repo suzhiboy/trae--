@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { knowledgeEdges, knowledgeNodes, questions } from '../data/knowledge';
+import { stemLatex } from '../data/highSchool';
+import { questionRules } from '../data/practiceRules';
 import { buildLearningPath, diagnose } from './diagnose';
 
 const typicalCases = [
@@ -74,7 +76,7 @@ const correctCases = [
   },
 ];
 
-describe('六种高中数学典型错误模式', () => {
+describe('十二种高中数学典型错误模式', () => {
   it.each(typicalCases)('$questionId 能识别 $answer', ({ questionId, answer, weakNodeId, reason, path }) => {
     const result = diagnose(questionId, answer);
 
@@ -224,8 +226,8 @@ describe('学习路径与高中知识依赖图', () => {
 });
 
 describe('前端模块导入契约', () => {
-  it('导出六道高中数学题、图谱和可按题号调用的诊断函数', () => {
-    expect(questions).toHaveLength(6);
+  it('导出十二道高中数学题、图谱和可按题号调用的诊断函数', () => {
+    expect(questions).toHaveLength(12);
     expect(knowledgeNodes).toHaveLength(18);
     expect(knowledgeEdges.length).toBeGreaterThan(0);
 
@@ -234,6 +236,53 @@ describe('前端模块导入契约', () => {
       const result = diagnose(question.id, question.correctAnswer);
       expect(result.isCorrect).toBe(true);
       expect(result.source).toBe('rules');
+    }
+  });
+});
+
+describe('十二题规则与变式数据完整性', () => {
+  it('题目、规则和元数据一一对应，模式与知识节点 ID 均有效', () => {
+    const nodeIds = new Set(knowledgeNodes.map((node) => node.id));
+    const questionIds = questions.map((question) => question.id);
+    const patternIds: string[] = [];
+
+    expect(new Set(questionIds).size).toBe(12);
+    expect(Object.keys(questionRules).sort()).toEqual([...questionIds].sort());
+    for (const question of questions) {
+      const rule = questionRules[question.id];
+      expect(question.module.length).toBeGreaterThan(0);
+      expect(question.estimatedSeconds).toBeGreaterThan(0);
+      expect(stemLatex[question.id]).toBeTruthy();
+      expect(nodeIds.has(rule.targetNodeId)).toBe(true);
+      expect(rule.errorPatterns.length).toBeGreaterThanOrEqual(2);
+      for (const pattern of rule.errorPatterns) {
+        patternIds.push(pattern.id);
+        expect(nodeIds.has(pattern.weakNodeId)).toBe(true);
+        expect(pattern.weakNodeId.startsWith('hs-')).toBe(false);
+        expect(pattern.answers.length).toBeGreaterThan(0);
+        expect(pattern.stepSignatures.length).toBeGreaterThan(0);
+        expect(pattern.correction.length).toBeGreaterThan(0);
+        expect(pattern.steps).toHaveLength(3);
+      }
+    }
+    expect(patternIds).toHaveLength(25);
+    expect(new Set(patternIds).size).toBe(25);
+  });
+
+  it('每个变式都有唯一正确项、唯一选项 ID 和完整逐项解析', () => {
+    for (const rule of Object.values(questionRules)) {
+      for (const pattern of rule.errorPatterns) {
+        const { variant } = pattern;
+        const optionIds = variant.options.map((option) => option.id);
+        expect(variant.stem.length).toBeGreaterThan(0);
+        expect(variant.options.length).toBeGreaterThanOrEqual(3);
+        expect(new Set(optionIds).size).toBe(optionIds.length);
+        expect(variant.options.filter((option) => option.id === variant.correctOptionId)).toHaveLength(1);
+        for (const option of variant.options) {
+          expect(option.text.length).toBeGreaterThan(0);
+          expect(option.explanation.length).toBeGreaterThan(0);
+        }
+      }
     }
   });
 });

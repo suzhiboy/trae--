@@ -32,26 +32,26 @@ const image = (prompt: string) =>
 export const highlights: HighlightItem[] = [
   {
     id: 'diagnosis',
-    kind: 'FIELD NOTES / 0001',
-    title: '从一个错答，倒推知识断点',
-    description: '把答案、规则证据与可能错因放在同一条可检查的证据链上。',
-    tag: '诊断笔记',
-    image: image('monochrome engineering sketch of mathematical error analysis, chalk diagrams and connected proof steps on black paper, precise thin white lines, subtle red marker, no readable text, editorial photography'),
+    kind: 'LIVE DEMO / 0001',
+    title: '同一个错答，分开的错因',
+    description: '引用草稿原句，区分符号、代入与最后一步加法；证据不足时明确说不确定。',
+    tag: '可现场演示',
+    image: image('monochrome engineering sketch of two student drafts compared line by line, chalk diagrams and connected proof steps on black paper, precise thin white lines, subtle red marker on one line, no readable text, editorial photography'),
   },
   {
     id: 'graph',
-    kind: 'LAST PROJECT / 0002',
-    title: '可交互知识依赖图谱',
-    description: '让前置知识、疑似薄弱点与建议复习路径在同一张图里对齐。',
-    tag: '已完成',
+    kind: 'RULE ENGINE / 0002',
+    title: '让证据进入知识依赖',
+    description: '只有确认的薄弱点才进入补习路径；候选原因不冒充结论。',
+    tag: '规则驱动',
     image: image('dark precise knowledge graph network, connected nodes and thin technical lines, monochrome graphite palette, one small red node, isometric composition, no readable text'),
   },
   {
     id: 'path',
-    kind: 'IN PROGRESS / 0003',
-    title: '按依赖顺序组织复习',
-    description: '不是给出更多题，而是先说明哪一个知识点值得回头。',
-    tag: '迭代中',
+    kind: 'VERIFICATION / 0003',
+    title: '用一道新题验证',
+    description: '做对变式写明“本次变式答对”，并区分首次作答与重试。',
+    tag: '学生可自查',
     image: image('layered transparent technical planes representing a learning sequence, dark architectural visualization, precise white edges, sparse red accents, no readable text'),
   },
 ];
@@ -62,7 +62,7 @@ export const works: WorkItem[] = [
     title: '函数值求解',
     category: 'FUNCTION / NEGATIVE INPUT',
     formula: 'f(-1) = (-1)² - 2 × (-1) + 3 = 6',
-    summary: '从错答 2 识别一次项符号处理这一可能原因，并回到函数概念与代入过程。',
+    summary: '同一个错答 2：甲错在一次项符号，乙错在最后的加法。系统分别定位到第 1 行和第 2 行。',
     image: image('mathematical function curve and negative coordinate system drawn as precise white line engraving on matte black, minimal red coordinate point, high contrast, no readable text'),
   },
   {
@@ -119,9 +119,9 @@ export const expertise: ExpertiseItem[] = [
 }));
 
 export const methodSteps = [
-  { title: 'Interaction & Behavior', chinese: '读取作答行为', body: '记录题目与最终答案，保留原始输入，不把未知信息补成确定结论。' },
-  { title: 'Interfaces & Visual Language', chinese: '呈现诊断证据', body: '把正确答案、学生答案、可能原因和推断依据放在同一阅读顺序里。' },
-  { title: 'Components & Logic', chinese: '匹配诊断规则', body: '将错答映射到可解释的错因模式；证据不足时降低置信度。' },
-  { title: 'Structure & Direction', chinese: '组织补习顺序', body: '沿知识依赖反向梳理前置点，给出可以执行的复习顺序。' },
-  { title: 'Inputs & Signals', chinese: '收集后续信号', body: '通过中间步骤、变式题与历史记录继续验证，而不是一次性下结论。' },
+  { title: 'Read', chinese: '读取作答', body: '记录题目、最终答案和每一行草稿，不把缺失信息补成结论。' },
+  { title: 'Locate', chinese: '定位首个错误', body: '逐行验证等式；正确的中间步骤不判错，漏做最后一步只说“还差一步”。' },
+  { title: 'Quote', chinese: '引用草稿证据', body: '引用学生原句，区分符号、代入与加法错误；只确认等式不成立时，准确说到这里。' },
+  { title: 'Order', chinese: '组织补习顺序', body: '只把已确认的薄弱点放进知识依赖路径，候选原因保持待确认。' },
+  { title: 'Verify', chinese: '变式验证', body: '用一道新题让学生自己验证；一次答对只记录“本次变式答对”，不推断长期掌握。' },
 ];
