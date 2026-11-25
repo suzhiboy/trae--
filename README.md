@@ -92,6 +92,7 @@ node server.mjs
 - `run.sh` 显式 `export PORT=8000`，与 FunctionWeb 的 `runtime.port` 一致。
 - AI 配置通过服务端环境变量注入；未配置时 `/api/health` 返回 `ai:false`，页面明确显示降级提示，内置 12 题仍可离线使用。
 - 站点可见性保持 `public`（所有人可见）。
+- 部署产物结构：`build.sh` 把 `dist/` 复制为 `runtime/dist/`，并把 `server.mjs`、`run.sh` 放入 `runtime/`。`server.mjs` 在自身目录下查找 `dist`，因此不能把 `dist` 内容摊平到 `runtime/`，否则首页会返回 `{"error":"not-found"}`。
 
 ## 演示路径
 
@@ -157,7 +158,7 @@ node server.mjs
 - 阶段 2（本地 mock + 真实浏览器）：任意题诊断后生成 2 道变式；答案错误的候选（f(1)/f(4)）被丢弃并补生成通过复算的题；答错变式显示“错因很可能仍在”，重试答对显示“本次变式答对（第 2 次尝试）”；教师视图粘贴 2 名学生 CSV 后显示 Top 错因与两个学生编号。**仍是本地 mock，不是真实模型验收。**
 - 375px 任意题入口：用 CDP 实测 `innerWidth=375`、`scrollWidth=375`、`clientWidth=375`，无横向滚动；`.freeform-form` 与 `.freeform-side` 均为单列，图片上传区在表单下方纵向堆叠。
 - 375px 阶段 2 布局：用同源 iframe 模拟 371×808，`#teacher` 与 `#freeform` 的 `scrollWidth=356`、`clientWidth=356`，无横向滚动；教师导入/汇总面板纵向堆叠，按钮与文本框完整可见。
-- 线上 FunctionWeb 部署：阶段 2 已重新部署成功（部署 ID `dep_6b06b273747a01d6d813a922`），站点仍为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；站点截图已刷新。部署成功不等于真实模型验收，线上 AI 调用仍以 `/api/health` 的实际配置为准。
+- 线上 FunctionWeb 部署：阶段 2 已重新部署成功（部署 ID `dep_6b06b3ace4e7d80dfa720343`），站点仍为 `https://37l9lp40qg9d6le6yeb.traesite.cn`，所有人可见；首页返回 200 HTML，阶段 2 的“教师视图 / 错因很可能仍在 / 导出 CSV”已包含在线上 JS 包中；`/api/health` 返回 `ai:false`（未配置模型，内置 12 题仍可离线）。站点截图已刷新。
 - 真实火山方舟调用、线上任意题变式、真实班级 CSV：**待验证**（尚未配置 API Key）。没有伪造的线上结果或准确率数据。
 - 真人试用：**待验证**。试用方案与记录模板见 `试用方案与录屏脚本.md`。
 
