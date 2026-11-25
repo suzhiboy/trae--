@@ -11,16 +11,16 @@ export default function Loader({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
     const state = { value: 0 };
     const timeline = gsap.timeline();
-    // 载入展示时长 1.15s；收起时长 0.8s，可按演示节奏调整。
+    // 首屏遮挡控制在 0.9s 内：0.5s 进度 + 0.4s 收起；减少动效时立即完成。
     timeline.to(state, {
       value: 100,
-      duration: reducedMotion ? 0.01 : 1.15,
+      duration: reducedMotion ? 0.01 : 0.5,
       ease: 'power4.inOut',
       onUpdate: () => setProgress(Math.round(state.value)),
     });
     timeline.to(root.current, {
       clipPath: 'inset(0 0 100% 0)',
-      duration: reducedMotion ? 0.01 : 0.8,
+      duration: reducedMotion ? 0.01 : 0.4,
       ease: 'power4.inOut',
       onComplete,
     });

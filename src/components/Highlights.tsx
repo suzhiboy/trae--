@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import Swiper from 'swiper';
-import { FreeMode } from 'swiper/modules';
+import type Swiper from 'swiper';
 import 'swiper/css';
 import { highlights } from '../data/site';
 import { gsap } from '../animations/motion';
@@ -17,16 +16,32 @@ export default function Highlights() {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let swiper: Swiper | null = null;
     let previousTranslate = 0;
+    let run = 0;
+    let cancelled = false;
+    let inView = false;
 
-    const setup = () => {
+    const teardown = () => {
       swiper?.destroy(true, true);
       swiper = null;
       previousTranslate = 0;
+    };
+
+    const setup = async () => {
+      if (!inView) return;
+      const current = ++run;
+      teardown();
       const nativeScroll = !desktop.matches || reducedMotion.matches;
       element.classList.toggle('native-scroll', nativeScroll);
       if (nativeScroll) return;
 
-      swiper = new Swiper(element, {
+      // 桌面端滚动到附近才加载 Swiper；移动端走原生横向滚动，不下载该模块。
+      const [{ default: SwiperCtor }, { FreeMode }] = await Promise.all([
+        import('swiper'),
+        import('swiper/modules'),
+      ]);
+      if (cancelled || current !== run) return;
+
+      swiper = new SwiperCtor(element, {
         modules: [FreeMode],
         slidesPerView: 1.15,
         spaceBetween: 18,
@@ -50,13 +65,28 @@ export default function Highlights() {
       });
     };
 
-    setup();
+    let observer: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver === 'undefined') {
+      inView = true;
+      void setup();
+    } else {
+      observer = new IntersectionObserver((entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        inView = true;
+        observer?.disconnect();
+        void setup();
+      }, { rootMargin: '300px' });
+      observer.observe(element);
+    }
     desktop.addEventListener('change', setup);
     reducedMotion.addEventListener('change', setup);
     return () => {
+      cancelled = true;
+      run += 1;
+      observer?.disconnect();
       desktop.removeEventListener('change', setup);
       reducedMotion.removeEventListener('change', setup);
-      swiper?.destroy(true, true);
+      teardown();
       gsap.killTweensOf(element.querySelectorAll('.highlight-card'));
     };
   }, []);
@@ -73,7 +103,7 @@ export default function Highlights() {
             <article className="swiper-slide highlight-card" key={item.id}>
               <a href={item.id === 'path' ? '#methodology' : '#works'} className="roll-trigger" data-cursor="VIEW">
                 <figure className="highlight-card__image" data-image-reveal>
-                  <img src={item.image} alt={`${item.title}抽象技术插图`} loading="lazy" />
+                  <img src={item.image} alt={`${item.title}抽象技术插图`} width={1280} height={719} loading="lazy" decoding="async" />
                   <span className="highlight-card__tag"><i className="status-dot" />{item.tag}</span>
                 </figure>
                 <div className="highlight-card__meta"><span>{item.kind}</span><ArrowUpRight className="card-arrow" strokeWidth={1.2} /></div>

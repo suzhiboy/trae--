@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { ArrowDown, Braces, Clock3 } from 'lucide-react';
 import { initPractice, type PracticeAnimationController } from '../../animations/initPractice';
 import { questions } from '../../data/knowledge';
@@ -7,13 +7,15 @@ import { questionRules } from '../../data/practiceRules';
 import { usePracticeSession } from '../../hooks/usePracticeSession';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import HistoryPanel from '../HistoryPanel';
-import KnowledgeGraph from '../KnowledgeGraph';
 import LearningPath from '../LearningPath';
 import { RollingNumber } from '../RollingDigits';
 import DiagnosisPanel from './DiagnosisPanel';
 import GroupPicker from './GroupPicker';
 import QuestionCard from './QuestionCard';
 import SessionSummary from './SessionSummary';
+
+// 知识图谱依赖 @xyflow/react，只在产生诊断结果后加载。
+const KnowledgeGraph = lazy(() => import('../KnowledgeGraph'));
 
 export default function PracticeSection() {
   const root = useRef<HTMLElement>(null);
@@ -124,7 +126,9 @@ export default function PracticeSection() {
                   ? '答案正确，本次无需生成补习顺序。'
                   : '补充更多解题证据后，再确定需要复习的路径。'}
               />
-              <KnowledgeGraph result={currentDraft.diagnosis} />
+              <Suspense fallback={<p className="practice-graph-loading">正在加载知识图谱…</p>}>
+                <KnowledgeGraph result={currentDraft.diagnosis} />
+              </Suspense>
             </div>
           )}
         </div>

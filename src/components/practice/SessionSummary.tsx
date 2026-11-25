@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Check, Clipboard, RotateCcw } from 'lucide-react';
 import { knowledgeNodes, questions } from '../../data/knowledge';
 import { stemLatex } from '../../data/highSchool';
 import { rowsFromSessionReport } from '../../engine/teacher';
 import type { PracticeAttempt, SessionReport } from '../../types';
-import KnowledgeGraph from '../KnowledgeGraph';
 import LearningPath from '../LearningPath';
 import { MixedMath } from '../MathTex';
 import CsvExportBar from '../report/CsvExportBar';
+
+// 知识图谱依赖 @xyflow/react，只在打开报告后加载。
+const KnowledgeGraph = lazy(() => import('../KnowledgeGraph'));
 
 const attemptStatus = {
   correct: '答案正确',
@@ -191,7 +193,9 @@ export default function SessionSummary({
           emptyText={report.answered === 0 ? '本组没有实际作答，因此不生成薄弱点和补习顺序。' : '本组没有已确认的薄弱点，无需生成补习顺序。'}
           expanded
         />
-        <KnowledgeGraph result={report} full />
+        <Suspense fallback={<p className="practice-graph-loading">正在加载知识图谱…</p>}>
+          <KnowledgeGraph result={report} full />
+        </Suspense>
       </div>
     </section>
   );
