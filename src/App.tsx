@@ -3,6 +3,7 @@ import Loader from './components/Loader';
 import Menu from './components/Menu';
 import Hero from './components/Hero';
 import CompareSection from './components/CompareSection';
+import FreeformSection from './components/FreeformSection';
 import PracticeSection from './components/practice/PracticeSection';
 import Highlights from './components/Highlights';
 import FeaturedWorks from './components/FeaturedWorks';
@@ -52,6 +53,7 @@ export default function App() {
         <main>
           <Hero loaded={loaded} />
           <CompareSection />
+          <FreeformSection />
           <PracticeSection />
           <Highlights />
           <FeaturedWorks />

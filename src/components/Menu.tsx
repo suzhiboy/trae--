@@ -7,7 +7,7 @@ interface MenuLink { label: string; href: string; tag?: string }
 interface MenuColumn { title: string; links: MenuLink[]; className?: string }
 
 const columns: MenuColumn[] = [
-  { title: 'Home', links: [{ label: '系统首页', href: '#home' }, { label: '同答异因', href: '#compare', tag: 'Live demo' }, { label: '做题诊断', href: '#practice' }, { label: '方法说明', href: '#methodology' }] },
+  { title: 'Home', links: [{ label: '系统首页', href: '#home' }, { label: '同答异因', href: '#compare', tag: 'Live demo' }, { label: '任意题诊断', href: '#freeform', tag: 'AI + Rules' }, { label: '做题诊断', href: '#practice' }, { label: '方法说明', href: '#methodology' }] },
   {
     title: 'Works',
     className: 'menu-column--works',

@@ -720,3 +720,175 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .compare-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
   .practice-result-split { grid-template-columns: 1fr; }
 }
+
+/* ---------- 任意题诊断：AI 理解 + 本地复算 ---------- */
+.freeform { position: relative; border-bottom: 1px solid var(--line); }
+.freeform-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin: -32px 0 34px; }
+.freeform-intro p { max-width: 780px; margin: 0; color: #999; font-size: 14px; line-height: 1.85; }
+.freeform-status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); color: #999; font-size: 10px; white-space: nowrap; }
+.freeform-status .status-dot { background: #d8a24a; }
+.freeform-status.is-on .status-dot { background: #9ec5a5; }
+.freeform-form { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr); gap: 22px; align-items: start; }
+.freeform-fields { display: grid; gap: 14px; min-width: 0; }
+.freeform-field { display: grid; gap: 8px; }
+.freeform-field label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--white); font-size: 11px; letter-spacing: 0.04em; }
+.freeform-field label small { color: #777; font-size: 9px; font-weight: 400; letter-spacing: 0; }
+.freeform-field input, .freeform-field textarea { width: 100%; min-width: 0; padding: 12px 13px; border: 1px solid var(--line); outline: 0; background: var(--surface); color: var(--white); font-family: inherit; font-size: 13px; line-height: 1.7; resize: vertical; transition: border-color 0.3s; }
+.freeform-field input { min-height: 46px; }
+.freeform-field input:focus, .freeform-field textarea:focus { border-color: #888; }
+.freeform-field input::placeholder, .freeform-field textarea::placeholder { color: #666; }
+.freeform-hint { margin: 0; color: #777; font-size: 10px; line-height: 1.7; }
+.freeform-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 2px; }
+.freeform-submit { gap: 8px; }
+.freeform-submit svg, .freeform-actions .practice-text-button svg { width: 14px; height: 14px; }
+.freeform-actions .practice-text-button { display: inline-flex; align-items: center; gap: 6px; }
+.freeform-side { display: grid; gap: 14px; min-width: 0; }
+.freeform-image { padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+.freeform-file-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; opacity: 0; }
+.freeform-image__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.freeform-image__head > span { color: var(--white); font-size: 10px; letter-spacing: 0.08em; }
+.freeform-image__head small { color: #777; font-size: 9px; }
+.freeform-image__drop { display: grid; justify-items: center; gap: 7px; width: 100%; min-height: 150px; padding: 20px; border: 1px dashed #555; background: var(--bg); color: #aaa; text-align: center; transition: border-color 0.3s, color 0.3s; }
+.freeform-image__drop:hover { border-color: var(--red); color: var(--white); }
+.freeform-image__drop svg { width: 26px; height: 26px; color: var(--white); }
+.freeform-image__drop strong { color: var(--white); font-size: 13px; font-weight: 500; }
+.freeform-image__drop span { font-size: 10px; line-height: 1.6; }
+.freeform-image__preview { display: grid; gap: 9px; }
+.freeform-image__preview img { width: 100%; max-height: 220px; object-fit: contain; border: 1px solid var(--line); background: var(--bg); }
+.freeform-image__preview > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.freeform-image__preview > div > span { color: #999; font-size: 9px; overflow-wrap: anywhere; }
+.freeform-image__preview .practice-text-button { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.freeform-image__preview .practice-text-button svg { width: 12px; height: 12px; }
+.freeform-image__recognize { width: 100%; gap: 7px; margin-top: 10px; }
+.freeform-image__recognize svg { width: 14px; height: 14px; }
+.freeform-image__error { margin: 10px 0 0; color: var(--red); font-size: 10px; line-height: 1.6; }
+.freeform-image__note { margin: 11px 0 0; color: #777; font-size: 9px; line-height: 1.7; }
+.freeform-rules { padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+.freeform-rules__title { display: flex; align-items: center; gap: 8px; color: var(--white); font-size: 10px; letter-spacing: 0.06em; }
+.freeform-rules__title svg { width: 14px; height: 14px; color: var(--red); }
+.freeform-rules ol { margin: 12px 0 10px; padding-left: 17px; color: #aaa; font-size: 11px; line-height: 1.9; }
+.freeform-rules small { color: #777; font-size: 9px; line-height: 1.7; }
+.freeform-feedback { display: grid; gap: 16px; }
+.freeform-ocr-note { display: flex; gap: 10px; align-items: flex-start; padding: 13px 15px; border: 1px solid rgba(158, 197, 165, 0.4); background: rgba(158, 197, 165, 0.06); }
+.freeform-ocr-note svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; color: #9ec5a5; }
+.freeform-ocr-note p { margin: 0; color: #c8c8c8; font-size: 11px; line-height: 1.7; }
+.freeform-progress { display: flex; align-items: center; gap: 10px; padding: 15px; border: 1px solid var(--line); background: var(--surface); }
+.freeform-progress p { margin: 0; color: var(--white); font-size: 12px; }
+.freeform-progress .status-dot { animation: freeform-pulse 1.1s ease-in-out infinite; }
+@keyframes freeform-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.freeform-error { display: flex; gap: 12px; align-items: flex-start; padding: 16px; border: 1px solid rgba(234, 56, 76, 0.45); background: rgba(234, 56, 76, 0.06); }
+.freeform-error > svg { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 2px; color: var(--red); }
+.freeform-error strong { display: block; color: var(--white); font-size: 13px; font-weight: 500; }
+.freeform-error p { margin: 7px 0 0; color: #bbb; font-size: 11px; line-height: 1.75; }
+.freeform-error.is-config { border-color: rgba(216, 162, 74, 0.45); background: rgba(216, 162, 74, 0.06); }
+.freeform-error.is-config > svg { color: #d8a24a; }
+.freeform-error__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 11px; }
+.freeform-error__actions .outline-button { min-height: 36px; }
+.freeform-result { border: 1px solid var(--line); background: var(--surface); }
+.freeform-result__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 22px; }
+.freeform-result__source { display: block; color: var(--red); font-size: 8px; letter-spacing: 0.1em; }
+.freeform-result.is-correct .freeform-result__source { color: var(--white); }
+.freeform-result.is-unknown .freeform-result__source { color: #d8a24a; }
+.freeform-result__head h3 { margin: 9px 0 0; color: var(--white); font-size: clamp(17px, 2vw, 24px); font-weight: 600; line-height: 1.4; letter-spacing: -0.02em; }
+.freeform-result__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.freeform-result__badges span { padding: 5px 8px; border: 1px solid var(--line); color: #999; font-size: 8px; letter-spacing: 0.06em; white-space: nowrap; }
+.freeform-verdict { display: grid; gap: 7px; padding: 13px 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.freeform-verdict strong { font-size: 11px; letter-spacing: 0.04em; }
+.freeform-verdict p { margin: 0; color: #bbb; font-size: 11px; line-height: 1.7; }
+.freeform-verdict.is-verified { background: rgba(158, 197, 165, 0.05); }
+.freeform-verdict.is-verified strong { color: #9ec5a5; }
+.freeform-verdict.is-conflict { background: rgba(234, 56, 76, 0.06); }
+.freeform-verdict.is-conflict strong { color: var(--red); }
+.freeform-verdict.is-unverified { background: rgba(216, 162, 74, 0.05); }
+.freeform-verdict.is-unverified strong { color: #d8a24a; }
+.freeform-verdict__swap { display: flex; align-items: center; gap: 7px; color: var(--white) !important; font-size: 12px !important; }
+.freeform-verdict__swap svg { width: 13px; height: 13px; color: var(--red); }
+.freeform-answer-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+.freeform-answer-compare > div { display: grid; gap: 5px; padding: 13px 22px; background: var(--surface); }
+.freeform-answer-compare span { color: #777; font-size: 8px; letter-spacing: 0.08em; }
+.freeform-answer-compare strong { color: var(--white); font-size: 17px; font-weight: 500; overflow-wrap: anywhere; }
+.freeform-result__grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr); border-top: 1px solid var(--line); }
+.freeform-result__col { min-width: 0; padding: 22px; }
+.freeform-result__col + .freeform-result__col { border-left: 1px solid var(--line); }
+.freeform-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 18px 0 9px; }
+.freeform-section-title:first-child { margin-top: 0; }
+.freeform-section-title > span { color: var(--white); font-size: 10px; letter-spacing: 0.08em; }
+.freeform-section-title small { color: #777; font-size: 9px; }
+.freeform-result__col p { color: #bbb; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.freeform-reason { margin: 0; color: var(--white) !important; font-size: 14px !important; line-height: 1.7 !important; }
+.freeform-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 10px 0 0; color: #999; font-size: 10px; }
+.freeform-note-inline { margin: 10px 0 0; padding: 9px 11px; border-left: 2px solid #d8a24a; background: var(--bg); color: #c8c8c8 !important; font-size: 11px !important; }
+.freeform-quote { margin: 14px 0 16px; padding: 11px 12px; border-left: 2px solid var(--red); background: var(--bg); }
+.freeform-quote span { display: block; margin-bottom: 5px; color: #777; font-size: 8px; letter-spacing: 0.08em; }
+.freeform-quote blockquote { margin: 0; color: var(--white); font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.freeform-callout { margin-top: 12px; padding: 12px; border: 1px solid var(--line); background: var(--bg); }
+.freeform-callout strong { display: block; color: var(--white); font-size: 11px; font-weight: 500; }
+.freeform-callout p, .freeform-callout ul { margin: 6px 0 0; color: #bbb; font-size: 11px; line-height: 1.8; }
+.freeform-callout ul { padding-left: 16px; }
+.freeform-callout small { display: block; margin-top: 6px; color: #777; font-size: 9px; }
+.freeform-callout.is-unverified { border-color: rgba(216, 162, 74, 0.35); }
+.freeform-callout.is-verified { border-color: rgba(158, 197, 165, 0.35); }
+.freeform-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.freeform-tags span { padding: 5px 8px; border: 1px solid var(--line); color: #ccc; font-size: 9px; }
+.freeform-standard-steps { display: grid; gap: 9px; margin: 0; padding-left: 20px; color: #ccc; font-size: 12px; line-height: 1.8; }
+.freeform-standard-steps li { padding-left: 2px; overflow-wrap: anywhere; }
+.freeform-standard-steps li .freeform-badge { margin-left: 8px; vertical-align: middle; }
+.freeform-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border: 1px solid var(--line); font-size: 8px; letter-spacing: 0.04em; white-space: nowrap; }
+.freeform-badge svg { width: 11px; height: 11px; }
+.freeform-badge.is-verified { border-color: rgba(158, 197, 165, 0.45); color: #9ec5a5; }
+.freeform-badge.is-conflict { border-color: rgba(234, 56, 76, 0.5); color: var(--red); }
+.freeform-badge.is-unverified { border-color: rgba(216, 162, 74, 0.45); color: #d8a24a; }
+.freeform-legend { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.freeform-counts { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 12px; font-size: 9px; letter-spacing: 0.04em; }
+.freeform-counts .is-verified { color: #9ec5a5; }
+.freeform-counts .is-conflict { color: var(--red); }
+.freeform-counts .is-unverified { color: #d8a24a; }
+.freeform-claims { display: grid; gap: 9px; max-height: 620px; overflow: auto; padding-right: 2px; }
+.freeform-claim { padding: 11px 12px; border: 1px solid var(--line); border-left-width: 2px; background: var(--bg); }
+.freeform-claim.is-verified { border-left-color: #9ec5a5; }
+.freeform-claim.is-conflict { border-left-color: var(--red); }
+.freeform-claim.is-unverified { border-left-color: #d8a24a; }
+.freeform-claim__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.freeform-claim__head > span:last-child { color: #777; font-size: 8px; letter-spacing: 0.06em; }
+.freeform-claim code { display: block; margin-top: 7px; padding: 6px 7px; background: rgba(16, 16, 16, 0.7); color: #ddd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.freeform-claim__compare { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 7px; color: #999; font-size: 9px; }
+.freeform-claim p { margin: 7px 0 0; color: #999; font-size: 10px; line-height: 1.7; }
+.freeform-empty { margin: 0; color: #777; font-size: 11px; }
+.freeform-variant { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.freeform-variant p { margin: 0 0 9px; color: var(--white); font-size: 12px; line-height: 1.8; }
+.freeform-variant .practice-text-button { display: inline-flex; align-items: center; gap: 6px; }
+.freeform-variant .practice-text-button svg { width: 13px; height: 13px; }
+.freeform-variant__answer { margin: 9px 0 0 !important; padding: 9px 10px; border: 1px solid rgba(158, 197, 165, 0.35); background: rgba(158, 197, 165, 0.05); color: #c8c8c8 !important; }
+.freeform-practice-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 16px; }
+.freeform-practice-link svg { width: 13px; height: 13px; }
+.freeform-footnote { margin: 16px 0 0 !important; padding-top: 12px; border-top: 1px solid var(--line); color: #777 !important; font-size: 9px !important; line-height: 1.7 !important; }
+.freeform-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line); }
+.freeform-footer p { margin: 0; color: #777; font-size: 10px; line-height: 1.7; }
+.freeform-footer span { color: #777; font-size: 9px; white-space: nowrap; }
+
+@media (max-width: 1100px) {
+  .freeform-form { grid-template-columns: 1fr; }
+  .freeform-side { grid-template-columns: 1fr 1fr; align-items: start; }
+  .freeform-result__grid { grid-template-columns: 1fr; }
+  .freeform-result__col + .freeform-result__col { border-left: 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 899px) {
+  .freeform-side { grid-template-columns: 1fr; }
+  .freeform-result__head { flex-direction: column; gap: 12px; }
+  .freeform-result__badges { justify-content: flex-start; }
+}
+
+@media (max-width: 767px) {
+  .freeform-intro { flex-direction: column; gap: 12px; margin: -16px 0 26px; }
+  .freeform-status { white-space: normal; }
+  .freeform-field input, .freeform-field textarea { font-size: 13px; }
+  .freeform-answer-compare { grid-template-columns: 1fr; }
+  .freeform-result__head, .freeform-verdict, .freeform-result__col { padding-left: 15px; padding-right: 15px; }
+  .freeform-answer-compare > div { padding-left: 15px; padding-right: 15px; }
+  .freeform-actions { align-items: stretch; }
+  .freeform-submit { flex: 1 1 100%; }
+  .freeform-claims { max-height: none; }
+  .freeform-footer { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .freeform-footer span { white-space: normal; }
+}
