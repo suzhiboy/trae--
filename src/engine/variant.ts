@@ -4,6 +4,7 @@ import type {
 } from '../types';
 import { checkQuestionAnswer } from './calcVerifiers';
 import { normalizeAnswer } from './normalize';
+import { answersEquivalent } from './verify';
 
 /**
  * 变式候选的本地复算闸门。
@@ -94,6 +95,24 @@ export function verifyVariantCandidate(
     '这道变式不属于本地可独立复算的题型，未展示。',
     check.expected,
   );
+}
+
+/**
+ * 学生提交变式答案的判分入口。
+ * 先走与候选筛选、诊断相同的本地核验：核验器能判定的以核验结果为准，
+ * 这样同一道题不会在筛选时按求根比较、在作答时又按字符串比较而得出不同结论。
+ * 核验器判定不了时，再与参考答案做等价比较（含“无实数解 / 无解 / ∅”）。
+ * 返回 correct 时不进入“答错后再诊断”的 AI 请求。
+ */
+export function judgeVariantAnswer(
+  variant: Pick<VerifiedFreeformVariant, 'stem' | 'answer'>,
+  answer: string,
+): { correct: true } | { correct: false } {
+  const trimmed = answer.trim();
+  const check = checkQuestionAnswer(variant.stem, [], trimmed);
+  if (check.status === 'verified') return { correct: true };
+  if (check.status === 'conflict') return { correct: false };
+  return answersEquivalent(trimmed, variant.answer) ? { correct: true } : { correct: false };
 }
 
 /**

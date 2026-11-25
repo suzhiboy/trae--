@@ -4,25 +4,28 @@ import type { FreeformRuleResult, Question } from '../types';
 import { diagnoseAttempt } from './attempt';
 import { normalizeAnswer } from './normalize';
 
+/**
+ * 只做保守的格式归一化：全半角、大小写、空白、全半角逗号、集合元素顺序和句末句号。
+ * 运算符、数学括号、集合元素分隔符和 ! 都保留，它们会改变题目的数学含义。
+ */
 function normalizeQuestionText(text: string): string {
   return normalizeAnswer(text)
-    .replace(/[\s，,。；;：:、？?！!"'“”‘’（）()【】[\]]/g, '');
+    .normalize('NFKC')
+    .replace(/\s+/g, '')
+    .replace(/[,，]/g, ',')
+    .replace(/[。.]+$/, '');
 }
 
-/** 只做保守匹配：完全一致，或长题干互相包含；避免把“求 f(-1)”误认成某道题。 */
+/**
+ * 仅当完整题干归一化后与题库题干完全相等时才复用内置题。
+ * 不做子串或包含匹配：任何追加的运算、条件或新问法都会改变题目，必须走自由题流程。
+ */
 export function matchBuiltinQuestion(text: string): Question | null {
   const normalized = normalizeQuestionText(text);
   if (!normalized) return null;
 
   for (const question of questions) {
     if (normalizeQuestionText(question.stem) === normalized) return question;
-  }
-
-  for (const question of questions) {
-    const stem = normalizeQuestionText(question.stem);
-    if (stem.length < 10 || normalized.length < 6) continue;
-    if (normalized.includes(stem)) return question;
-    if (stem.includes(normalized) && normalized.length / stem.length > 0.6) return question;
   }
 
   return null;

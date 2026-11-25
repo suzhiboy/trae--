@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertTriangle, CheckCircle2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { recordAiFailure, recordAiSuccess } from '../../services/aiCredential';
-import { answersEquivalent, buildAiDiagnosis } from '../../engine/verify';
+import { buildAiDiagnosis } from '../../engine/verify';
 import { compareVariantError, type VariantComparison } from '../../engine/variantReview';
+import { judgeVariantAnswer } from '../../engine/variant';
 import { requestFreeformDiagnosis } from '../../services/freeformDiagnosis';
 import type {
   AiCredential,
@@ -88,7 +89,8 @@ function VariantItem({
     setChecking(true);
     setRevealed(false);
 
-    if (answersEquivalent(trimmed, variant.answer)) {
+    // 判对直接返回，不发起“答错后再诊断”的 AI 请求。
+    if (judgeVariantAnswer(variant, trimmed).correct) {
       setResult({
         correct: true,
         attempts: attemptNumber,

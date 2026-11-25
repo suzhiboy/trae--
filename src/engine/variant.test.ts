@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { FreeformVariantCandidate, VerifiedFreeformVariant } from '../types';
 import type { RejectedVariant } from './variant';
-import { collectVerifiedVariants, normalizeVariantStem, verifyVariantCandidate } from './variant';
+import { collectVerifiedVariants, judgeVariantAnswer, normalizeVariantStem, verifyVariantCandidate } from './variant';
 
 function isVerified(result: VerifiedFreeformVariant | RejectedVariant): result is VerifiedFreeformVariant {
   return 'verification' in result;
@@ -113,6 +113,149 @@ describe('变式复算：只有能从题干独立算对的题才展示', () => {
   it('缺题干或答案的候选直接丢弃', () => {
     expect(isVerified(verifyVariantCandidate({ stem: '', answer: '3' }))).toBe(false);
     expect(isVerified(verifyVariantCandidate({ stem: '已知 f(x)=x²-2x+3，求 f(2)', answer: '' }))).toBe(false);
+  });
+
+  it('三次方程只给一个根时不能通过变式筛选', () => {
+    const result = verifyVariantCandidate({
+      stem: '解方程 x³-x=0',
+      answer: 'x=1',
+    });
+
+    expect(isVerified(result)).toBe(false);
+    if (!isVerified(result)) {
+      expect(result.detail).toContain('未展示');
+    }
+  });
+
+  it('四个采样点吻合也不足以证明次数：四次方程不会被当成二次', () => {
+    const result = verifyVariantCandidate({
+      stem: '解方程 x⁴-2x³+2x=0',
+      answer: 'x=0',
+    });
+
+    expect(isVerified(result)).toBe(false);
+  });
+
+  it('小数系数方程按 0.5x=2 复算：x=4 通过，x=0.4 丢弃', () => {
+    const correct = verifyVariantCandidate({ stem: '解方程 0.5x=2', answer: 'x=4' });
+    expect(isVerified(correct)).toBe(true);
+    if (isVerified(correct)) {
+      expect(correct.verification.kind).toBe('equation');
+      expect(correct.verification.expected).toBe('x=4');
+    }
+
+    expect(isVerified(verifyVariantCandidate({ stem: '解方程 0.5x=2', answer: 'x=0.4' }))).toBe(false);
+  });
+
+  it('无实数解的变式可以被本地复算通过', () => {
+    const result = verifyVariantCandidate({ stem: '解方程 x²+1=0', answer: '无实数解' });
+
+    expect(isVerified(result)).toBe(true);
+    if (isVerified(result)) {
+      expect(result.verification.expected).toBe('无实数解');
+    }
+  });
+
+  it('不支持的表达式不从中间截取，候选不展示', () => {
+    const result = verifyVariantCandidate({ stem: '解方程 √(x+1)=2', answer: 'x=1' });
+
+    expect(isVerified(result)).toBe(false);
+  });
+
+  it.each([
+    ['解方程 πx+1=3', 'x=2'],
+    ['解方程 x²=8', 'x=2√2'],
+    ['解方程 2|x|-3=0', 'x=1.5'],
+  ])('未知符号出现在 %s 中时，x=… 不因局部截取而通过', (stem, answer) => {
+    expect(isVerified(verifyVariantCandidate({ stem, answer }))).toBe(false);
+  });
+
+  it('缩放后的 x²-1=0：完整解集通过，x=0 或只填 x=1 都被拒绝', () => {
+    const full = verifyVariantCandidate({ stem: '解方程 0.00001x²-0.00001=0', answer: 'x=-1或x=1' });
+    expect(isVerified(full)).toBe(true);
+    if (isVerified(full)) expect(full.verification.expected).toBe('x=-1或x=1');
+
+    expect(isVerified(verifyVariantCandidate({ stem: '解方程 0.00001x²-0.00001=0', answer: 'x=0' }))).toBe(false);
+    expect(isVerified(verifyVariantCandidate({ stem: '解方程 0.00001x²-0.00001=0', answer: 'x=1' }))).toBe(false);
+  });
+
+  it('缩放后的无实根与重根方程仍能通过筛选', () => {
+    const none = verifyVariantCandidate({ stem: '解方程 0.00001x²+0.00001=0', answer: '无实数解' });
+    expect(isVerified(none)).toBe(true);
+    const repeated = verifyVariantCandidate({ stem: '解方程 0.00001(x-1)²=0', answer: 'x=1' });
+    expect(isVerified(repeated)).toBe(true);
+  });
+
+  it('函数变式的中间值不舍入：f(1)×3 的答案是 1', () => {
+    expect(isVerified(verifyVariantCandidate({ stem: '已知 f(x)=x/3，求 f(1)×3', answer: '1' }))).toBe(true);
+    expect(isVerified(verifyVariantCandidate({ stem: '已知 f(x)=x/3，求 f(1)×3', answer: '0.999999' }))).toBe(false);
+  });
+});
+
+describe('变式作答判分：与候选筛选共用无解语义', () => {
+  const noRealRoots = verifyVariantCandidate({ stem: '解方程 x²+1=0', answer: '无实数解' });
+  const realRoots = verifyVariantCandidate({ stem: '解方程 x²-1=0', answer: 'x=-1或x=1' });
+
+  it('先确认两道变式确实通过了本地复算筛选', () => {
+    expect(isVerified(noRealRoots)).toBe(true);
+    expect(isVerified(realRoots)).toBe(true);
+  });
+
+  it.each(['无实数解', '无解', '∅'])('对无实根变式提交“%s”判对', (answer) => {
+    if (!isVerified(noRealRoots)) throw new Error('变式未通过筛选');
+    expect(judgeVariantAnswer(noRealRoots, answer)).toEqual({ correct: true });
+  });
+
+  it('提交“不是无解”判错', () => {
+    if (!isVerified(noRealRoots)) throw new Error('变式未通过筛选');
+    expect(judgeVariantAnswer(noRealRoots, '不是无解').correct).toBe(false);
+  });
+
+  it('对有实根的变式提交“无解”“∅”判错，提交完整解集判对', () => {
+    if (!isVerified(realRoots)) throw new Error('变式未通过筛选');
+    expect(judgeVariantAnswer(realRoots, '无解').correct).toBe(false);
+    expect(judgeVariantAnswer(realRoots, '∅').correct).toBe(false);
+    expect(judgeVariantAnswer(realRoots, 'x=1或x=-1')).toEqual({ correct: true });
+  });
+});
+
+describe('第三轮：变式候选筛选与作答判分', () => {
+  it.each([
+    ['已知 f(x)=2x，求 2f(3)', '6'],
+    ['已知 f(x)=2x，求 f(2)!', '4'],
+    ['已知 f(x)=2x，求 f(2)!', '24'],
+    ['解方程 0.0000000000001x²+x=0', 'x=0'],
+    ['解方程 x²+10000000000000x=0', 'x=0'],
+    ['2x=4', 'x=2(3)'],
+    ['2x=4', 'x=2 或 xyz'],
+  ])('候选「%s」答案「%s」被筛选拒绝', (stem, answer) => {
+    expect(isVerified(verifyVariantCandidate({ stem, answer }))).toBe(false);
+  });
+
+  it('通过筛选的函数变式：作答 2f(3) 与 12 判对，6 判错', () => {
+    const variant = verifyVariantCandidate({ stem: '已知 f(x)=2x，求 2f(3)', answer: '12' });
+    if (!isVerified(variant)) throw new Error('变式未通过筛选');
+
+    expect(judgeVariantAnswer(variant, '2f(3)')).toEqual({ correct: true });
+    expect(judgeVariantAnswer(variant, '12')).toEqual({ correct: true });
+    expect(judgeVariantAnswer(variant, '6').correct).toBe(false);
+  });
+
+  it('通过筛选的方程变式：作答 x=±1 判对，漏根判错', () => {
+    const variant = verifyVariantCandidate({ stem: '解方程 x²-1=0', answer: 'x=-1或x=1' });
+    if (!isVerified(variant)) throw new Error('变式未通过筛选');
+
+    expect(judgeVariantAnswer(variant, 'x=±1')).toEqual({ correct: true });
+    expect(judgeVariantAnswer(variant, 'x=1').correct).toBe(false);
+  });
+
+  it('正确答案带句末句号时，页面判分不因字符串比较判错', () => {
+    const variant = verifyVariantCandidate({ stem: '解方程 x²-5x+6=0', answer: 'x=2或x=3' });
+    if (!isVerified(variant)) throw new Error('变式未通过筛选');
+
+    expect(judgeVariantAnswer(variant, 'x=2或x=3。')).toEqual({ correct: true });
+    expect(judgeVariantAnswer(variant, 'x=3或x=2。')).toEqual({ correct: true });
+    expect(judgeVariantAnswer(variant, 'x=2。').correct).toBe(false);
   });
 });
 

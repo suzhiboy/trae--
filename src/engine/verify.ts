@@ -14,6 +14,7 @@ import {
   checkStudentStep,
   formatNumber,
   isClose,
+  isNoSolutionAnswer,
   parseNumericAnswer,
 } from './calcVerifiers';
 
@@ -46,6 +47,12 @@ export function normalizeSolutionAnswer(answer: string): string {
 }
 
 export function answersEquivalent(left: string, right: string): boolean {
+  // “无解”类答案按语义比较，与本地求根核验共用同一套认定：无解表述之间互相等价，
+  // 但绝不与任何具体数值或解集等价。
+  const leftNoSolution = isNoSolutionAnswer(left);
+  const rightNoSolution = isNoSolutionAnswer(right);
+  if (leftNoSolution || rightNoSolution) return leftNoSolution && rightNoSolution;
+
   const leftNormalized = normalizeAnswer(left);
   const rightNormalized = normalizeAnswer(right);
   const multiValue = leftNormalized.includes(',') || rightNormalized.includes(',');
@@ -315,7 +322,9 @@ export function buildAiDiagnosis(input: FreeformInput, ai: FreeformAiResult): Fr
   }
 
   let lastStandardValue: number | null = null;
-  for (const step of ai.standardSteps.slice(0, 6)) {
+  const standardSteps = ai.standardSteps.slice(0, 6);
+  for (let stepIndex = 0; stepIndex < standardSteps.length; stepIndex += 1) {
+    const step = standardSteps[stepIndex];
     const stepCheck = checkStudentStep(input.question, step);
     if (stepCheck.status === 'inconsistent') {
       addClaim(claims, {
@@ -327,10 +336,10 @@ export function buildAiDiagnosis(input: FreeformInput, ai: FreeformAiResult): Fr
         detail: `AI 给出的标准解法这一步不成立：${stepCheck.detail}`,
       });
     } else if (stepCheck.status === 'consistent') {
-      const value = stepCheck.expectedValue !== null
-        ? parseNumericAnswer(stepCheck.expectedValue)
-        : null;
-      if (value !== null) lastStandardValue = value;
+      // 只有标准解法的最后一步才代表最终结果；中间函数值不能拿来和答案比较。
+      if (stepIndex === standardSteps.length - 1 && stepCheck.expectedValue !== null) {
+        lastStandardValue = parseNumericAnswer(stepCheck.expectedValue);
+      }
       addClaim(claims, {
         kind: 'standard-step',
         expression: step,

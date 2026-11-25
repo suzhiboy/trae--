@@ -199,18 +199,49 @@ export function evaluateExpression(input: string): number | null {
   return parseTokens(tokens);
 }
 
-export function cleanStepLine(raw: string): string {
-  return String(raw ?? '')
+/**
+ * 去掉开头的 (数字) 题号。判断依据是它后面的下一个非空白字符：
+ * 是运算符、等号或左括号时，(数字) 是算式因子（如 (2)+3、(2) + 3），必须保留。
+ */
+export function stripParenLabel(line: string): string {
+  const match = /^\s*\(\s*\d+\s*\)(\s*)(.?)/.exec(line);
+  if (!match) return line;
+  const next = match[2];
+  if (next === '' || '+-*/^=('.includes(next)) return line;
+  return line.slice(match[0].length - next.length);
+}
+
+export interface CleanStepOptions {
+  /** 保留开头的 (数字)。需要按“完整算式”判断一行时使用。 */
+  keepParenLabel?: boolean;
+}
+
+export function cleanStepLine(raw: string, options: CleanStepOptions = {}): string {
+  const line = String(raw ?? '')
     .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (digits) => `^${[...digits].map((digit) => superscriptDigits[digit]).join('')}`)
     .normalize('NFKC')
     .replace(/[−–—]/g, '-')
     .replace(/[×·⋅]/g, '*')
-    .replace(/÷/g, '/')
+    .replace(/÷/g, '/');
+
+  return (options.keepParenLabel ? line : stripParenLabel(line))
+    // 题号必须在删空格前处理：先删空格会把“1. 1.5+2”变成“1.1.5+2”，无法再区分题号与小数。
+    .replace(/^\s*\d+\s*、\s*/, '')
+    .replace(/^\s*\d+\s*\)\s*/, '')
+    // 点号后紧跟数字时是小数（1.5），不能当作题号删除。
+    .replace(/^\s*\d+\s*\.(?!\d)\s*/, '')
     .replace(/\s+/g, '')
     .replace(/\$/g, '')
-    .replace(/^[（(]?\d+[.、)）]/, '')
     .replace(/^(?:解|答|步骤|第\d+步)[:：]?/, '')
     .toLowerCase();
+}
+
+/**
+ * 开头的 (数字) 后面（可隔空白）直接跟数字时含义有歧义：可能是题号「(2) 1.5+2」，
+ * 也可能是隐含乘法「(2)3」。调用方不能只靠删掉编号后等式成立来证明这一步正确。
+ */
+export function hasAmbiguousLeadingLabel(raw: string): boolean {
+  return /^\s*[（(]\s*\d+\s*[)）]\s*[0-9]/.test(String(raw ?? ''));
 }
 
 function splitSegments(body: string): string[] {
