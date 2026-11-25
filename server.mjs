@@ -15,6 +15,7 @@ const AI_VISION_MODEL = process.env.AI_VISION_MODEL ?? AI_MODEL;
 const AI_API_KEY = process.env.AI_API_KEY ?? '';
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 20000);
 const AI_VISION_TIMEOUT_MS = Number(process.env.AI_VISION_TIMEOUT_MS ?? 20000);
+const AI_FALLBACK_TIMEOUT_MS = Number(process.env.AI_FALLBACK_TIMEOUT_MS ?? 8000);
 const AI_CONFIGURED = Boolean(AI_API_KEY && AI_MODEL);
 const BODY_LIMIT = 64 * 1024;
 const IMAGE_BODY_LIMIT = 8 * 1024 * 1024;
@@ -142,7 +143,7 @@ async function diagnoseWithAi(input) {
       response_format: { type: 'json_object' },
       messages: buildMessages(input),
     }),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(AI_FALLBACK_TIMEOUT_MS),
   });
 
   if (!response.ok) throw new Error(`upstream-${response.status}`);
