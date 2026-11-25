@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Check, Clipboard, RotateCcw } from 'lucide-react';
 import { knowledgeNodes, questions } from '../../data/knowledge';
 import { stemLatex } from '../../data/highSchool';
+import { rowsFromSessionReport } from '../../engine/teacher';
 import type { PracticeAttempt, SessionReport } from '../../types';
 import KnowledgeGraph from '../KnowledgeGraph';
 import LearningPath from '../LearningPath';
 import { MixedMath } from '../MathTex';
+import CsvExportBar from '../report/CsvExportBar';
 
 const attemptStatus = {
   correct: '答案正确',
@@ -154,6 +156,13 @@ export default function SessionSummary({
         <span>我不会 {unanswered}</span>
         <span>变式首次答对 {variantFirstTry} / 尝试 {variantAttempts.length}</span>
       </div>
+
+      <CsvExportBar
+        buildRows={(studentId) => rowsFromSessionReport(report, groupTitle, studentId)}
+        filenamePrefix={`会话报告-${groupTitle}`}
+        note="CSV 只包含本次会话的真实作答，可粘贴到教师视图聚合。"
+        testId="practice-export-csv"
+      />
 
       <div className="practice-summary__attempts" data-lenis-prevent>
         {report.attempts.map((attempt, index) => {

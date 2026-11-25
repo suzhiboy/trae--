@@ -5,6 +5,7 @@ import Hero from './components/Hero';
 import CompareSection from './components/CompareSection';
 import FreeformSection from './components/FreeformSection';
 import PracticeSection from './components/practice/PracticeSection';
+import TeacherPanel from './components/TeacherPanel';
 import Highlights from './components/Highlights';
 import FeaturedWorks from './components/FeaturedWorks';
 import Expertise from './components/Expertise';
@@ -55,6 +56,7 @@ export default function App() {
           <CompareSection />
           <FreeformSection />
           <PracticeSection />
+          <TeacherPanel />
           <Highlights />
           <FeaturedWorks />
           <Expertise />

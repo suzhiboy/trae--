@@ -1,6 +1,8 @@
 import { Trash2 } from 'lucide-react';
 import { knowledgeNodes } from '../../data/knowledge';
+import { rowsFromFreeformRecords } from '../../engine/teacher';
 import type { DiagnosisRecord, DiagnosisSummary } from '../../types';
+import CsvExportBar from '../report/CsvExportBar';
 
 const statusLabel: Record<DiagnosisRecord['status'], string> = {
   correct: '正确',
@@ -71,6 +73,13 @@ export default function FreeformRecords({
       <p className="freeform-records__note">
         汇总只合并已确认的薄弱点；证据不足和答案正确的记录不并入。修改当前输入不会删除历史记录。
       </p>
+
+      <CsvExportBar
+        buildRows={(studentId) => rowsFromFreeformRecords(records, studentId)}
+        filenamePrefix="自由诊断记录"
+        note="CSV 只包含本机真实诊断记录，可粘贴到教师视图聚合。"
+        testId="freeform-export-csv"
+      />
 
       <button type="button" className="practice-text-button" onClick={onClear}>
         <Trash2 aria-hidden="true" />清空本机记录

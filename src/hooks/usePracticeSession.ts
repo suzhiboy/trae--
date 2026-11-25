@@ -497,7 +497,7 @@ export function parseActiveSession(raw: string | null): PracticeSessionState | n
   }
 }
 
-function parseHistory(raw: string | null): PracticeHistoryEntry[] {
+export function parseHistory(raw: string | null): PracticeHistoryEntry[] {
   if (!raw) return [];
   try {
     const value: unknown = JSON.parse(raw);
