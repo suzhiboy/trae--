@@ -143,3 +143,90 @@ export interface SessionReport {
   learningPathIds: string[];
   attempts: PracticeAttempt[];
 }
+
+/* ---------- 任意题诊断：AI 理解 + 本地复算 ---------- */
+
+export type VerificationState = 'verified' | 'conflict' | 'unverified';
+
+export type ClaimKind = 'arithmetic' | 'equation' | 'set' | 'answer' | 'quote';
+
+/** 模型自己声明“这条结论可被独立复算”。 */
+export interface AiClaim {
+  kind: ClaimKind;
+  expression: string;
+  claimed: string;
+}
+
+/** 服务端严格校验后返回的模型结果。 */
+export interface FreeformAiResult {
+  correctAnswer: string;
+  standardSteps: string[];
+  /** 1 起的学生步骤序号；没有错误步骤为 null。 */
+  firstWrongStepIndex: number | null;
+  stepQuote: string;
+  reason: string;
+  knowledgePoint: string;
+  knowledgeNodeId: string | null;
+  variant: { stem: string; answer: string };
+  confidence: 'high' | 'medium' | 'low';
+  claims: AiClaim[];
+  insufficientEvidence: boolean;
+  uncertainty: string;
+}
+
+export interface VerifiedClaim {
+  kind: ClaimKind | 'standard-step' | 'student-step' | 'final-answer' | 'index';
+  expression: string;
+  claimed: string;
+  recomputed: string | null;
+  status: VerificationState;
+  detail: string;
+}
+
+export interface FreeformVerification {
+  claims: VerifiedClaim[];
+  verifiedCount: number;
+  conflictCount: number;
+  unverifiedCount: number;
+  conclusion: 'consistent' | 'partial' | 'conflict' | 'unverifiable' | 'insufficient';
+}
+
+/** 任意题入口的 AI 诊断展示模型。 */
+export interface FreeformAiDiagnosis {
+  source: 'ai';
+  status: AttemptStatus;
+  /** 采纳的正确答案；冲突时可能是本地复算值。 */
+  correctAnswer: string;
+  /** 模型原始给出的正确答案，用于对照。 */
+  aiCorrectAnswer: string;
+  standardSteps: string[];
+  /** 0 起，供 UI 高亮；已通过引用原句校验。 */
+  firstWrongStepIndex: number | null;
+  stepQuote: string;
+  reason: string;
+  aiReason: string;
+  knowledgePoint: string;
+  knowledgeNodeId: string | null;
+  variant: { stem: string; answer: string };
+  confidence: 'high' | 'medium' | 'low';
+  aiConfidence: 'high' | 'medium' | 'low';
+  verification: FreeformVerification;
+  uncertainty: string;
+}
+
+/** 命中内置题时，仍走原有规则诊断。 */
+export interface FreeformRuleResult {
+  source: 'rules';
+  question: Question;
+  diagnosis: AttemptDiagnosis;
+}
+
+export type FreeformResult = FreeformRuleResult | FreeformAiDiagnosis;
+
+export interface OcrResult {
+  question: string;
+  finalAnswer: string;
+  steps: string[];
+  uncertainFields: string[];
+  confidence: 'high' | 'medium' | 'low';
+}
