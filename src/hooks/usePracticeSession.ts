@@ -4,6 +4,7 @@ import { getPracticeGroup, type PracticeGroup } from '../data/practiceGroups';
 import { questionRules } from '../data/practiceRules';
 import { diagnoseAttempt } from '../engine/attempt';
 import { summarizeSession } from '../engine/session';
+import { activeAiCredential, useAiSettings } from '../services/aiCredential';
 import { fetchAiDiagnosis } from '../services/aiDiagnosis';
 import type {
   AttemptDiagnosis,
@@ -561,6 +562,12 @@ export function usePracticeSession() {
   const [history, setHistory] = useState<PracticeHistoryEntry[]>(() => parseHistory(readStorage(HISTORY_STORAGE_KEY)));
   // 同一题同一答案只请求一次 AI；失败后保持规则结论，不重试、不打断作答。
   const aiRequested = useRef<Set<string>>(new Set());
+  const aiSettings = useAiSettings();
+
+  // 凭证变化后允许同一题重新尝试；Key 本身不出现在请求键或日志里。
+  useEffect(() => {
+    aiRequested.current.clear();
+  }, [aiSettings.mode, aiSettings.enabled, aiSettings.key]);
 
   useEffect(() => {
     if (state.phase === 'idle') {
@@ -607,6 +614,10 @@ export function usePracticeSession() {
     if (state.phase !== 'diagnosed' || !currentQuestionId || !currentDiagnosis) return;
     if (currentDiagnosis.status !== 'unknown' || currentDiagnosis.source !== 'rules') return;
 
+    // 自定义模式未启用时宁可不发请求，也不回退到站点账户。
+    const credential = activeAiCredential();
+    if (!credential) return;
+
     const draft = state.drafts[state.currentIndex];
     const key = `${state.sessionId}:${state.currentIndex}:${draft.finalAnswer}`;
     if (aiRequested.current.has(key)) return;
@@ -616,7 +627,7 @@ export function usePracticeSession() {
     if (!question) return;
 
     let active = true;
-    fetchAiDiagnosis(question, draft.finalAnswer, draft.steps).then((diagnosis) => {
+    fetchAiDiagnosis(question, draft.finalAnswer, draft.steps, credential).then((diagnosis) => {
       if (!active || !diagnosis) return;
       dispatch({
         type: 'APPLY_AI',
@@ -628,7 +639,17 @@ export function usePracticeSession() {
     return () => {
       active = false;
     };
-  }, [currentDiagnosis, currentQuestionId, state.currentIndex, state.drafts, state.phase, state.sessionId]);
+  }, [
+    aiSettings.enabled,
+    aiSettings.key,
+    aiSettings.mode,
+    currentDiagnosis,
+    currentQuestionId,
+    state.currentIndex,
+    state.drafts,
+    state.phase,
+    state.sessionId,
+  ]);
 
   const startGroup = useCallback((group: PracticeGroup) => {
     dispatch({

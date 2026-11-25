@@ -41,6 +41,22 @@ export function buildRuleResult(
   };
 }
 
+/** 规则优先：命中内置题时直接返回规则结果，任何 AI 凭证都不会被使用。 */
+export type FreeformDiagnosisPlan =
+  | { kind: 'rules'; result: FreeformRuleResult }
+  | { kind: 'ai' };
+
+export function planFreeformDiagnosis(
+  question: string,
+  finalAnswer: string,
+  steps: string[],
+): FreeformDiagnosisPlan {
+  const builtin = matchBuiltinQuestion(question);
+  return builtin
+    ? { kind: 'rules', result: buildRuleResult(builtin, finalAnswer, steps) }
+    : { kind: 'ai' };
+}
+
 /** 规则结果对应的变式与答案；没有匹配到具体错因时为 null。 */
 export function ruleVariant(result: FreeformRuleResult): { stem: string; answer: string } | null {
   const patternId = result.diagnosis.matchedPatternId;

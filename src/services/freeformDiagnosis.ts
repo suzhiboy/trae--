@@ -1,9 +1,18 @@
 import { knowledgeNodes } from '../data/knowledge';
 import { parseFreeformAiResult, parseOcrResult, parseVariantList } from '../engine/freeformSchema';
-import type { FreeformAiResult, FreeformVariantCandidate, OcrResult } from '../types';
+import type {
+  AiCredential,
+  FreeformAiResult,
+  FreeformVariantCandidate,
+  OcrResult,
+} from '../types';
+import { credentialPayload } from './aiCredential';
 
 export type FreeformFailureCode =
   | 'ai-not-configured'
+  | 'ai-model-not-configured'
+  | 'custom-key-required'
+  | 'custom-key-invalid'
   | 'timeout'
   | 'rate-limited'
   | 'auth-failed'
@@ -32,13 +41,20 @@ export type VariantCandidateResponse = { ok: true; variants: FreeformVariantCand
 export interface AiHealth {
   ai: boolean;
   vision: boolean;
+  provider?: string | null;
+  model?: string | null;
+  visionModel?: string | null;
+  customKeyReady?: boolean;
 }
 
 const failureMessages: Record<FreeformFailureCode, string> = {
-  'ai-not-configured': 'AI 服务未配置。内置 12 题仍可离线诊断；配置服务端 AI_API_KEY 与 AI_MODEL 后可使用任意题。',
+  'ai-not-configured': '站点没有配置默认 AI Key。可以在「AI 设置」里使用自己的 Key；内置 12 题仍可离线诊断。',
+  'ai-model-not-configured': '站点尚未配置模型 ID，无法使用自定义 Key。请管理员设置服务端 AI_MODEL 后再试。',
+  'custom-key-required': '已选择自定义 Key，但还没有启用。请先在「AI 设置」里填写并启用，或切回站点配置。',
+  'custom-key-invalid': '自定义 API Key 无效或没有权限。请检查 Key 后重新启用；系统不会自动切换到站点账户。',
   timeout: '模型服务超时，未生成结论。可以重试，或先用内置题。',
   'rate-limited': '模型服务限流，请稍后重试。',
-  'auth-failed': '模型服务鉴权失败。请检查服务端密钥；页面不会显示密钥。',
+  'auth-failed': '站点 AI 鉴权失败。请检查服务端密钥；页面不会显示密钥。',
   'model-not-found': '模型 ID 不存在或未开通。请检查服务端 AI_MODEL / AI_VISION_MODEL。',
   'bad-request': '模型服务拒绝了请求。请检查 AI_MODEL 是否为支持 JSON 输出的对话模型。',
   'vision-model-required': '当前模型不支持图片输入。请配置支持多模态的 AI_VISION_MODEL。',
@@ -105,6 +121,9 @@ function mapHttpFailure(response: Response, payload: unknown): FreeformFailure {
   const code = payloadText(record.error);
   const retryAfter = Number(record.retryAfter) || undefined;
 
+  if (code === 'custom-key-invalid') return failure('custom-key-invalid');
+  if (code === 'custom-key-required') return failure('custom-key-required');
+  if (code === 'ai-model-not-configured') return failure('ai-model-not-configured');
   if (response.status === 503 || code === 'ai-not-configured') return failure('ai-not-configured');
   if (response.status === 429 || code === 'rate-limited') return failure('rate-limited', undefined, retryAfter);
   if (code === 'timeout') return failure('timeout');
@@ -123,15 +142,16 @@ function mapHttpFailure(response: Response, payload: unknown): FreeformFailure {
   return failure('upstream');
 }
 
-/** 任意题诊断：只发文本，密钥永不出现在前端。 */
+/** 任意题诊断：只发文本，密钥永不出现在 URL 或前端日志。 */
 export async function requestFreeformDiagnosis(input: {
   question: string;
   finalAnswer: string;
   steps: string[];
-}): Promise<FreeformDiagnosisResponse> {
+}, credential: AiCredential): Promise<FreeformDiagnosisResponse> {
   const posted = await postJson('/api/freeform-diagnose', {
     ...input,
     nodes: knowledgeNodes.map((node) => ({ id: node.id, label: node.label })),
+    ...credentialPayload(credential),
   }, 35000);
   if (isFailure(posted)) return posted;
 
@@ -155,8 +175,11 @@ export async function requestVariantCandidates(input: {
   knowledgePoint: string;
   count: number;
   excludeStems: string[];
-}): Promise<VariantCandidateResponse> {
-  const posted = await postJson('/api/freeform-variants', input, 30000);
+}, credential: AiCredential): Promise<VariantCandidateResponse> {
+  const posted = await postJson('/api/freeform-variants', {
+    ...input,
+    ...credentialPayload(credential),
+  }, 30000);
   if (isFailure(posted)) return posted;
 
   const { response, payload } = posted;
@@ -211,7 +234,10 @@ async function compressImage(file: File): Promise<string> {
 }
 
 /** 图片识别：返回可编辑的题目、答案、步骤，由学生确认后再诊断。 */
-export async function requestImageRecognition(file: File): Promise<OcrResponse> {
+export async function requestImageRecognition(
+  file: File,
+  credential: AiCredential,
+): Promise<OcrResponse> {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
     return failure('invalid-image');
   }
@@ -225,7 +251,10 @@ export async function requestImageRecognition(file: File): Promise<OcrResponse> 
   }
   if (image.length > 6.4 * 1024 * 1024) return failure('image-too-large');
 
-  const posted = await postJson('/api/recognize', { image }, 40000);
+  const posted = await postJson('/api/recognize', {
+    image,
+    ...credentialPayload(credential),
+  }, 40000);
   if (isFailure(posted)) return posted;
 
   const { response, payload } = posted;
@@ -242,13 +271,28 @@ export async function requestImageRecognition(file: File): Promise<OcrResponse> 
 
 /** 首页状态条用：未配置时页面明确说明，不假装 AI 可用。 */
 export async function checkAiHealth(): Promise<AiHealth> {
+  const unavailable: AiHealth = {
+    ai: false,
+    vision: false,
+    provider: null,
+    model: null,
+    visionModel: null,
+    customKeyReady: false,
+  };
   try {
     const response = await fetch('/api/health', { cache: 'no-store' });
-    if (!response.ok) return { ai: false, vision: false };
+    if (!response.ok) return unavailable;
     const payload: unknown = await response.json();
     const record = isRecord(payload) ? payload : {};
-    return { ai: record.ai === true, vision: record.vision === true };
+    return {
+      ai: record.ai === true,
+      vision: record.vision === true,
+      provider: typeof record.provider === 'string' ? record.provider : null,
+      model: typeof record.model === 'string' ? record.model : null,
+      visionModel: typeof record.visionModel === 'string' ? record.visionModel : null,
+      customKeyReady: record.customKeyReady === true,
+    };
   } catch {
-    return { ai: false, vision: false };
+    return unavailable;
   }
 }

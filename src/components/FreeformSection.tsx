@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, RotateCcw, ScanSearch, ShieldQuestion } from 'lucide-react';
-import { buildRuleResult, matchBuiltinQuestion } from '../engine/freeform';
+import { AlertTriangle, CheckCircle2, RotateCcw, ScanSearch, Settings2, ShieldQuestion } from 'lucide-react';
+import { planFreeformDiagnosis } from '../engine/freeform';
 import { summarizeDiagnoses } from '../engine/session';
 import { buildAiDiagnosis } from '../engine/verify';
 import { collectVerifiedVariants } from '../engine/variant';
+import {
+  activeAiCredential,
+  recordAiFailure,
+  recordAiSuccess,
+  useAiSettings,
+} from '../services/aiCredential';
 import {
   checkAiHealth,
   requestFreeformDiagnosis,
@@ -18,11 +24,13 @@ import {
   saveFreeformRecords,
 } from '../services/freeformRecords';
 import type {
+  AiCredential,
   DiagnosisRecord,
   FreeformAiDiagnosis,
   FreeformResult,
   FreeformVariantCandidate,
 } from '../types';
+import AiSettings from './freeform/AiSettings';
 import FreeformRecords from './freeform/FreeformRecords';
 import FreeformResultView from './freeform/FreeformResult';
 import ImageInput from './freeform/ImageInput';
@@ -57,6 +65,13 @@ const retryable = new Set<FreeformFailure['code']>([
   'insufficient-evidence',
 ]);
 
+const credentialFailureCodes = new Set<FreeformFailure['code']>([
+  'ai-not-configured',
+  'ai-model-not-configured',
+  'custom-key-required',
+  'custom-key-invalid',
+]);
+
 export default function FreeformSection() {
   const [question, setQuestion] = useState('');
   const [finalAnswer, setFinalAnswer] = useState('');
@@ -66,8 +81,10 @@ export default function FreeformSection() {
   const [failure, setFailure] = useState<FreeformFailure | null>(null);
   const [ocrNote, setOcrNote] = useState('');
   const [health, setHealth] = useState<AiHealth | null>(null);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [variantState, setVariantState] = useState<VariantPracticeState>(emptyVariantState);
   const [records, setRecords] = useState<DiagnosisRecord[]>(() => loadFreeformRecords());
+  const aiSettings = useAiSettings();
   const requestSeq = useRef(0);
   const ocrSeq = useRef(0);
   const variantSeq = useRef(0);
@@ -99,6 +116,7 @@ export default function FreeformSection() {
     submission: Submission,
     diagnosis: FreeformAiDiagnosis,
     initialCandidates: FreeformVariantCandidate[],
+    credential: AiCredential,
     excludeStems: string[] = [],
   ) => {
     const seq = variantSeq.current + 1;
@@ -117,8 +135,12 @@ export default function FreeformSection() {
         knowledgePoint: diagnosis.knowledgePoint,
         count: 2,
         excludeStems: exclude,
-      });
-      if (!response.ok) throw new Error(response.message);
+      }, credential);
+      if (!response.ok) {
+        recordAiFailure(credential, response.code, response.message);
+        throw new Error(response.message);
+      }
+      recordAiSuccess(credential);
       return response.variants;
     }, {
       target: 2,
@@ -157,7 +179,7 @@ export default function FreeformSection() {
 
   const handleOcrResult = (ocr: { question: string; finalAnswer: string; steps: string[]; uncertainFields: string[] }) => {
     if (ocrSeq.current !== requestSeq.current) return;
-    setHealth({ ai: true, vision: true });
+    setHealth((current) => current ? { ...current, vision: true } : current);
     setQuestion(ocr.question);
     setFinalAnswer(ocr.finalAnswer);
     setStepsText(ocr.steps.join('\n'));
@@ -170,7 +192,12 @@ export default function FreeformSection() {
 
   const handleOcrError = (next: FreeformFailure) => {
     if (ocrSeq.current !== requestSeq.current) return;
-    if (next.code === 'ai-not-configured') setHealth({ ai: false, vision: false });
+    if (next.code === 'ai-not-configured') {
+      setHealth((current) => current ? { ...current, ai: false } : current);
+    }
+    if (next.code === 'ai-model-not-configured') {
+      setHealth((current) => current ? { ...current, customKeyReady: false } : current);
+    }
     if (next.code === 'vision-model-required') {
       setHealth((current) => current ? { ...current, vision: false } : current);
     }
@@ -202,16 +229,26 @@ export default function FreeformSection() {
     };
     lastSubmission.current = submission;
 
-    const builtin = matchBuiltinQuestion(trimmedQuestion);
-    if (builtin) {
+    const plan = planFreeformDiagnosis(trimmedQuestion, trimmedAnswer, trimmedSteps);
+    if (plan.kind === 'rules') {
       variantSeq.current += 1;
       setVariantState(emptyVariantState);
-      const ruleResult = buildRuleResult(builtin, trimmedAnswer, trimmedSteps);
-      setResult(ruleResult);
-      setRecords((current) => addFreeformRecord(current, recordFromResult(submission, ruleResult)));
+      setResult(plan.result);
+      setRecords((current) => addFreeformRecord(current, recordFromResult(submission, plan.result)));
       setFailure(null);
       setOcrNote('');
       setPhase('result');
+      return;
+    }
+
+    const credential = activeAiCredential();
+    if (!credential) {
+      setFailure({
+        ok: false,
+        code: 'custom-key-required',
+        message: '已选择自定义 Key，但还没有启用。请先在「AI 设置」里填写并启用，或切回站点配置。',
+      });
+      setPhase('error');
       return;
     }
 
@@ -223,11 +260,17 @@ export default function FreeformSection() {
     setFailure(null);
     setResult(null);
 
-    const response = await requestFreeformDiagnosis(submission);
+    const response = await requestFreeformDiagnosis(submission, credential);
     if (seq !== requestSeq.current) return;
 
     if (!response.ok) {
-      if (response.code === 'ai-not-configured') setHealth({ ai: false, vision: false });
+      recordAiFailure(credential, response.code, response.message);
+      if (response.code === 'ai-not-configured') {
+        setHealth((current) => current ? { ...current, ai: false } : current);
+      }
+      if (response.code === 'ai-model-not-configured') {
+        setHealth((current) => current ? { ...current, customKeyReady: false } : current);
+      }
       if (response.code === 'vision-model-required') {
         setHealth((current) => current ? { ...current, vision: false } : current);
       }
@@ -236,7 +279,7 @@ export default function FreeformSection() {
       return;
     }
 
-    setHealth((current) => ({ ai: true, vision: current?.vision ?? false }));
+    recordAiSuccess(credential);
     const diagnosis = buildAiDiagnosis(submission, response.result);
     setResult(diagnosis);
     setRecords((current) => addFreeformRecord(current, recordFromResult(submission, diagnosis)));
@@ -245,7 +288,7 @@ export default function FreeformSection() {
       const candidates = response.result.variants?.length
         ? response.result.variants
         : [response.result.variant];
-      runVariantCollection(submission, diagnosis, candidates);
+      runVariantCollection(submission, diagnosis, candidates, credential);
     }
   };
 
@@ -265,19 +308,57 @@ export default function FreeformSection() {
 
   const regenerateVariants = () => {
     if (!lastSubmission.current || !result || result.source !== 'ai' || !canGenerateVariants(result)) return;
+    const credential = activeAiCredential();
+    if (!credential) {
+      setVariantState({
+        status: 'error',
+        variants: [],
+        rejectedCount: 0,
+        exhausted: true,
+        message: '自定义 Key 未启用，无法生成变式。请先在「AI 设置」中填写并启用。',
+      });
+      return;
+    }
     runVariantCollection(
       lastSubmission.current,
       result,
       [],
+      credential,
       variantState.variants.map((variant) => variant.stem),
     );
   };
 
+  const credential = activeAiCredential();
   const healthLabel = health === null
-    ? '正在检查 AI 服务…'
-    : health.ai
-      ? health.vision ? 'AI 服务已连接 · 图片识别可用' : 'AI 服务已连接 · 图片识别未配置'
-      : 'AI 未配置 · 内置 12 题仍可离线诊断';
+    ? '正在检查 AI 配置…'
+    : aiSettings.mode === 'custom'
+      ? aiSettings.enabled
+        ? aiSettings.status === 'connected'
+          ? '自定义 Key · 连接成功'
+          : aiSettings.status === 'invalid'
+            ? '自定义 Key · 需要检查'
+            : aiSettings.status === 'error'
+              ? '自定义 Key · 连接未完成'
+              : '自定义 Key · 已启用'
+        : '自定义 Key · 未启用'
+      : health.ai
+        ? `站点 AI 已配置${health.model ? ` · ${health.model}` : ''}`
+        : health.customKeyReady
+          ? '站点默认 Key 未配置 · 可填自己的 Key'
+          : 'AI 未配置 · 内置 12 题仍可离线诊断';
+  const healthOn = (aiSettings.mode === 'site' && health?.ai === true)
+    || (aiSettings.mode === 'custom' && aiSettings.status === 'connected');
+
+  const toggleAiSettings = () => {
+    setAiSettingsOpen((open) => {
+      if (!open) {
+        checkAiHealth().then((value) => setHealth(value));
+      }
+      return !open;
+    });
+  };
+
+  const credentialIssue = failure !== null && credentialFailureCodes.has(failure.code);
 
   return (
     <section className="freeform section-shell" id="freeform" data-testid="freeform-section" aria-labelledby="freeform-title">
@@ -294,11 +375,31 @@ export default function FreeformSection() {
           模型负责读懂题目和学生步骤，本地规则负责独立复算。每个可计算结论都会标出
           「已核验 / 冲突 / 未核验」；AI 算错时，以复算结果为准。
         </p>
-        <span className={`freeform-status${health?.ai ? ' is-on' : ''}`}>
-          <i className="status-dot" />
-          {healthLabel}
-        </span>
+        <div className="freeform-status-group">
+          <span className={`freeform-status${healthOn ? ' is-on' : ''}`}>
+            <i className="status-dot" />
+            {healthLabel}
+          </span>
+          <button
+            type="button"
+            className="freeform-ai-entry"
+            data-testid="ai-settings-trigger"
+            aria-expanded={aiSettingsOpen}
+            aria-controls="ai-settings"
+            onClick={toggleAiSettings}
+          >
+            <Settings2 aria-hidden="true" />
+            AI 设置
+            <small>{aiSettings.mode === 'custom' ? (aiSettings.enabled ? '自定义' : '未启用') : '站点配置'}</small>
+          </button>
+        </div>
       </div>
+
+      <AiSettings
+        open={aiSettingsOpen}
+        health={health}
+        onClose={() => setAiSettingsOpen(false)}
+      />
 
       <div className="freeform-form">
         <div className="freeform-fields">
@@ -368,6 +469,7 @@ export default function FreeformSection() {
         <aside className="freeform-side">
           <ImageInput
             disabled={busy}
+            credential={credential}
             onStart={handleOcrStart}
             onRecognized={handleOcrResult}
             onError={handleOcrError}
@@ -384,7 +486,7 @@ export default function FreeformSection() {
               <li>其他题：模型给出结构化诊断，本地再逐条复算。</li>
               <li>算不出的结论：明确标「AI 推断，未核验」，不硬判。</li>
             </ol>
-            <small>图片会发送到服务端模型；密钥只存在服务端。</small>
+            <small>站点默认 Key 只存在服务端；自定义 Key 只存在本页内存，调用时经本站后端转发。</small>
           </div>
         </aside>
       </div>
@@ -412,10 +514,10 @@ export default function FreeformSection() {
         )}
 
         {phase === 'error' && failure && (
-          <div className={`freeform-error${failure.code === 'ai-not-configured' ? ' is-config' : ''}`} role="alert">
+          <div className={`freeform-error${credentialIssue ? ' is-config' : ''}`} role="alert">
             <AlertTriangle aria-hidden="true" />
             <div>
-              <strong>{failure.code === 'ai-not-configured' ? 'AI 服务暂不可用' : '本次诊断没有完成'}</strong>
+              <strong>{credentialIssue ? 'AI 凭证需要处理' : '本次诊断没有完成'}</strong>
               <p>{failure.message}</p>
               <div className="freeform-error__actions">
                 {retryable.has(failure.code) && lastSubmission.current && (
@@ -425,6 +527,11 @@ export default function FreeformSection() {
                     onClick={() => lastSubmission.current && submit(lastSubmission.current)}
                   >
                     重试
+                  </button>
+                )}
+                {credentialIssue && (
+                  <button type="button" className="outline-button" onClick={toggleAiSettings}>
+                    <Settings2 aria-hidden="true" />打开 AI 设置
                   </button>
                 )}
                 {failure.code === 'ai-not-configured' && (
@@ -444,6 +551,7 @@ export default function FreeformSection() {
                 <VariantPractice
                   state={variantState}
                   originalDiagnosis={result}
+                  credential={credential}
                   onRetry={regenerateVariants}
                 />
               )

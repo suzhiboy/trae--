@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, RotateCcw, ScanSearch } from 'lucide-react';
+import { recordAiFailure, recordAiSuccess } from '../../services/aiCredential';
 import { requestImageRecognition, type FreeformFailure } from '../../services/freeformDiagnosis';
-import type { OcrResult } from '../../types';
+import type { AiCredential, OcrResult } from '../../types';
 
 export default function ImageInput({
   disabled,
+  credential,
   onStart,
   onRecognized,
   onError,
   onFileSelected,
 }: {
   disabled: boolean;
+  credential: AiCredential | null;
   onStart: () => void;
   onRecognized: (result: OcrResult) => void;
   onError: (failure: FreeformFailure) => void;
@@ -53,14 +56,20 @@ export default function ImageInput({
 
   const recognize = async () => {
     if (!file || busy || disabled) return;
+    if (!credential) {
+      setLocalError('已选择自定义 Key，但尚未启用。请先在「AI 设置」中填写并启用，或切回站点配置。');
+      return;
+    }
     setBusy(true);
     setLocalError('');
     onStart();
-    const response = await requestImageRecognition(file);
+    const response = await requestImageRecognition(file, credential);
     setBusy(false);
     if (response.ok) {
+      recordAiSuccess(credential);
       onRecognized(response.result);
     } else {
+      recordAiFailure(credential, response.code, response.message);
       onError(response);
     }
   };
@@ -120,6 +129,7 @@ export default function ImageInput({
       {localError && <p className="freeform-image__error" role="alert">{localError}</p>}
       <p className="freeform-image__note">
         图片会发送到服务端模型做转录，仅用于本次识别；不会写入本机历史记录。
+        使用自定义 Key 时，Key 只随本次请求转发，不保存在图片或识别结果里。
       </p>
     </div>
   );

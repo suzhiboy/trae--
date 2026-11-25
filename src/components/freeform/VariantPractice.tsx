@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertTriangle, CheckCircle2, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { recordAiFailure, recordAiSuccess } from '../../services/aiCredential';
 import { answersEquivalent, buildAiDiagnosis } from '../../engine/verify';
 import { compareVariantError, type VariantComparison } from '../../engine/variantReview';
 import { requestFreeformDiagnosis } from '../../services/freeformDiagnosis';
 import type {
+  AiCredential,
   FreeformAiDiagnosis,
   VerifiedFreeformVariant,
   VariantErrorVerdict,
@@ -48,10 +50,12 @@ function VariantItem({
   index,
   variant,
   originalDiagnosis,
+  credential,
 }: {
   index: number;
   variant: VerifiedFreeformVariant;
   originalDiagnosis: FreeformAiDiagnosis;
+  credential: AiCredential | null;
 }) {
   const [answer, setAnswer] = useState('');
   const [step, setStep] = useState('');
@@ -97,15 +101,29 @@ function VariantItem({
       return;
     }
 
+    if (!credential) {
+      setResult({
+        correct: false,
+        attempts: attemptNumber,
+        comparison: null,
+        variantReason: '',
+        error: '已选择自定义 Key，但尚未启用。请先在「AI 设置」中填写并启用，或切回站点配置。',
+        previous,
+      });
+      setChecking(false);
+      return;
+    }
+
     const steps = step.trim() ? [step.trim()] : [];
     try {
       const response = await requestFreeformDiagnosis({
         question: variant.stem,
         finalAnswer: trimmed,
         steps,
-      });
+      }, credential);
       if (!alive.current) return;
       if (!response.ok) {
+        recordAiFailure(credential, response.code, response.message);
         setResult({
           correct: false,
           attempts: attemptNumber,
@@ -117,6 +135,7 @@ function VariantItem({
         setChecking(false);
         return;
       }
+      recordAiSuccess(credential);
       const diagnosis = buildAiDiagnosis(
         { question: variant.stem, finalAnswer: trimmed, steps },
         response.result,
@@ -132,6 +151,7 @@ function VariantItem({
         previous,
       });
     } catch {
+      recordAiFailure(credential, 'network', '网络中断，变式诊断没有完成。');
       if (!alive.current) return;
       setResult({
         correct: false,
@@ -254,10 +274,12 @@ function VariantItem({
 export default function VariantPractice({
   state,
   originalDiagnosis,
+  credential,
   onRetry,
 }: {
   state: VariantPracticeState;
   originalDiagnosis: FreeformAiDiagnosis;
+  credential: AiCredential | null;
   onRetry: () => void;
 }) {
   if (state.status === 'loading') {
@@ -319,6 +341,7 @@ export default function VariantPractice({
           index={index}
           variant={variant}
           originalDiagnosis={originalDiagnosis}
+          credential={credential}
         />
       ))}
 

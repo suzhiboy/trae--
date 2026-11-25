@@ -148,6 +148,13 @@ export interface SessionReport {
 
 export type VerificationState = 'verified' | 'conflict' | 'unverified';
 
+/** 每次 AI 请求显式选择凭证；自定义 Key 只存在于当前页面内存。 */
+export type AiCredentialMode = 'site' | 'custom';
+
+export type AiCredential =
+  | { mode: 'site' }
+  | { mode: 'custom'; apiKey: string };
+
 /** 变式候选；答案必须通过本地复算后才允许展示。 */
 export interface FreeformVariantCandidate {
   stem: string;

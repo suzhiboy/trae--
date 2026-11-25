@@ -964,6 +964,42 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .freeform-footer span { white-space: normal; }
 }
 
+/* ---------- AI 设置：站点配置 / 自定义 Key ---------- */
+.freeform-status-group { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.freeform-ai-entry { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid var(--line); background: transparent; color: #bbb; font-size: 9px; letter-spacing: 0.04em; transition: border-color 0.3s, color 0.3s; }
+.freeform-ai-entry:hover { border-color: #888; color: var(--white); }
+.freeform-ai-entry svg { width: 13px; height: 13px; color: var(--red); }
+.freeform-ai-entry small { padding: 2px 5px; border: 1px solid var(--line); color: #777; font-size: 8px; letter-spacing: 0; }
+.ai-settings { margin: -12px 0 26px; padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+.ai-settings__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ai-settings__head > div > span { display: flex; align-items: center; gap: 6px; color: var(--red); font-size: 8px; letter-spacing: 0.1em; }
+.ai-settings__head > div > span svg { width: 12px; height: 12px; }
+.ai-settings__head h3 { margin: 7px 0 0; color: var(--white); font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.ai-settings__head .practice-text-button { white-space: nowrap; }
+.ai-settings__modes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.ai-settings__mode { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid var(--line); color: #999; font-size: 10px; cursor: pointer; transition: border-color 0.3s, color 0.3s; }
+.ai-settings__mode.is-active { border-color: #888; background: var(--bg); color: var(--white); }
+.ai-settings__mode input { accent-color: var(--red); }
+.ai-settings__meta { margin: 12px 0 0; color: #999; font-size: 10px; line-height: 1.7; }
+.ai-settings__note { margin: 9px 0 0; color: #888; font-size: 10px; line-height: 1.7; }
+.ai-settings__note code { padding: 1px 4px; border: 1px solid var(--line); color: #ccc; font-size: 9px; }
+.ai-settings__warning { margin: 10px 0 0; padding: 8px 10px; border-left: 2px solid #d8a24a; background: rgba(216, 162, 74, 0.05); color: #d8a24a; font-size: 10px; line-height: 1.7; }
+.ai-settings__key { display: grid; gap: 6px; margin-top: 12px; }
+.ai-settings__key > span { display: flex; align-items: center; gap: 6px; color: #aaa; font-size: 9px; letter-spacing: 0.04em; }
+.ai-settings__key > span svg { width: 12px; height: 12px; }
+.ai-settings__key-row { display: flex; align-items: center; gap: 8px; }
+.ai-settings__key-row input { flex: 1; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); outline: 0; background: var(--bg); color: var(--white); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; transition: border-color 0.3s; }
+.ai-settings__key-row input:focus { border-color: #888; }
+.ai-settings__key-row input::placeholder { color: #666; }
+.ai-settings__key-row .practice-text-button { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.ai-settings__key-row .practice-text-button svg { width: 12px; height: 12px; }
+.ai-settings__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.ai-settings__actions .outline-button { min-height: 36px; }
+.ai-settings__status { margin: 10px 0 0; padding: 8px 10px; border: 1px solid var(--line); color: #aaa; font-size: 10px; line-height: 1.7; }
+.ai-settings__status.is-connected { border-color: rgba(158, 197, 165, 0.4); background: rgba(158, 197, 165, 0.05); color: #9ec5a5; }
+.ai-settings__status.is-invalid { border-color: rgba(234, 56, 76, 0.4); background: rgba(234, 56, 76, 0.05); color: var(--red); }
+.ai-settings__status.is-error { border-color: rgba(216, 162, 74, 0.4); background: rgba(216, 162, 74, 0.05); color: #d8a24a; }
+
 /* ---------- CSV 导出：学生编号 + 下载 ---------- */
 .student-id-field { display: grid; gap: 6px; min-width: 180px; }
 .student-id-field > span { color: #999; font-size: 9px; letter-spacing: 0.04em; }
@@ -1029,4 +1065,10 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .student-id-field { min-width: 0; width: 100%; }
   .csv-export-bar { align-items: stretch; }
   .csv-export-bar .outline-button { width: 100%; justify-content: center; }
+  .freeform-status-group { align-items: flex-start; width: 100%; }
+  .freeform-ai-entry { width: 100%; justify-content: center; }
+  .ai-settings { padding: 14px; }
+  .ai-settings__key-row { flex-wrap: wrap; }
+  .ai-settings__key-row .practice-text-button { flex: 1 1 100%; justify-content: center; }
+  .ai-settings__actions .outline-button { flex: 1 1 100%; }
 }
