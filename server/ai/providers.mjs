@@ -110,7 +110,8 @@ export function builtinProviders() {
       suggestedVisionModels: [],
       apiKey: '',
       customKey: true,
-      jsonMode: 'json_object',
+      // DeepSeek reasoner 不保证支持 response_format；内置入口统一用提示词要求 JSON，兼容两种模型。
+      jsonMode: 'none',
       maxTokens: 3000,
       temperature: 0.1,
       default: false,
