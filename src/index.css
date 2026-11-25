@@ -919,6 +919,24 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .freeform-variant-empty .outline-button { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; }
 .freeform-variant-empty .outline-button svg { width: 12px; height: 12px; }
 
+/* ---------- 自由题诊断记录：本机汇总 ---------- */
+.freeform-records { margin-top: 20px; padding: 16px; border: 1px solid var(--line); background: var(--surface); }
+.freeform-records .freeform-section-title { margin-top: 0; }
+.freeform-records__metrics { display: flex; flex-wrap: wrap; gap: 7px 14px; color: #999; font-size: 9px; letter-spacing: 0.03em; }
+.freeform-records__weak { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.freeform-records__weak > span { color: #777; font-size: 9px; letter-spacing: 0.04em; }
+.freeform-records__weak b { padding: 3px 7px; border: 1px solid rgba(234, 56, 76, 0.35); background: rgba(234, 56, 76, 0.04); color: #d98d8d; font-size: 9px; font-weight: 400; }
+.freeform-records__weak em { color: #777; font-size: 9px; font-style: normal; }
+.freeform-records__path { margin: 10px 0 0 !important; color: #bbb !important; font-size: 10px !important; line-height: 1.7 !important; }
+.freeform-records__list { display: grid; gap: 1px; margin: 13px 0 0; padding: 0; list-style: none; background: var(--line); }
+.freeform-records__list li { display: flex; gap: 10px; padding: 9px 10px; background: var(--bg); }
+.freeform-records__list li > span { flex: 0 0 62px; color: #d8a24a; font-size: 8px; letter-spacing: 0.04em; }
+.freeform-records__list p { display: -webkit-box; margin: 0 !important; overflow: hidden; color: #ddd !important; font-size: 10px !important; line-height: 1.6 !important; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.freeform-records__list small { display: block; margin-top: 3px; color: #777; font-size: 9px; line-height: 1.6; }
+.freeform-records__note { margin: 10px 0 0 !important; color: #777 !important; font-size: 9px !important; line-height: 1.7 !important; }
+.freeform-records > .practice-text-button { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #aaa; font-size: 9px; }
+.freeform-records > .practice-text-button svg { width: 12px; height: 12px; }
+
 @media (max-width: 1100px) {
   .freeform-form { grid-template-columns: 1fr; }
   .freeform-side { grid-template-columns: 1fr 1fr; align-items: start; }

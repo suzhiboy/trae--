@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RotateCcw, ScanSearch, ShieldQuestion } from 'lucide-react';
 import { buildRuleResult, matchBuiltinQuestion } from '../engine/freeform';
+import { summarizeDiagnoses } from '../engine/session';
 import { buildAiDiagnosis } from '../engine/verify';
 import { collectVerifiedVariants } from '../engine/variant';
 import {
@@ -10,7 +11,19 @@ import {
   type AiHealth,
   type FreeformFailure,
 } from '../services/freeformDiagnosis';
-import type { FreeformAiDiagnosis, FreeformResult, FreeformVariantCandidate } from '../types';
+import {
+  addFreeformRecord,
+  loadFreeformRecords,
+  recordFromResult,
+  saveFreeformRecords,
+} from '../services/freeformRecords';
+import type {
+  DiagnosisRecord,
+  FreeformAiDiagnosis,
+  FreeformResult,
+  FreeformVariantCandidate,
+} from '../types';
+import FreeformRecords from './freeform/FreeformRecords';
 import FreeformResultView from './freeform/FreeformResult';
 import ImageInput from './freeform/ImageInput';
 import VariantPractice, { type VariantPracticeState } from './freeform/VariantPractice';
@@ -54,10 +67,15 @@ export default function FreeformSection() {
   const [ocrNote, setOcrNote] = useState('');
   const [health, setHealth] = useState<AiHealth | null>(null);
   const [variantState, setVariantState] = useState<VariantPracticeState>(emptyVariantState);
+  const [records, setRecords] = useState<DiagnosisRecord[]>(() => loadFreeformRecords());
   const requestSeq = useRef(0);
   const ocrSeq = useRef(0);
   const variantSeq = useRef(0);
   const lastSubmission = useRef<Submission | null>(null);
+
+  useEffect(() => {
+    saveFreeformRecords(records);
+  }, [records]);
 
   useEffect(() => {
     let alive = true;
@@ -188,7 +206,9 @@ export default function FreeformSection() {
     if (builtin) {
       variantSeq.current += 1;
       setVariantState(emptyVariantState);
-      setResult(buildRuleResult(builtin, trimmedAnswer, trimmedSteps));
+      const ruleResult = buildRuleResult(builtin, trimmedAnswer, trimmedSteps);
+      setResult(ruleResult);
+      setRecords((current) => addFreeformRecord(current, recordFromResult(submission, ruleResult)));
       setFailure(null);
       setOcrNote('');
       setPhase('result');
@@ -219,6 +239,7 @@ export default function FreeformSection() {
     setHealth((current) => ({ ai: true, vision: current?.vision ?? false }));
     const diagnosis = buildAiDiagnosis(submission, response.result);
     setResult(diagnosis);
+    setRecords((current) => addFreeformRecord(current, recordFromResult(submission, diagnosis)));
     setPhase('result');
     if (canGenerateVariants(diagnosis)) {
       const candidates = response.result.variants?.length
@@ -430,6 +451,12 @@ export default function FreeformSection() {
           />
         )}
       </div>
+
+      <FreeformRecords
+        records={records}
+        summary={summarizeDiagnoses(records)}
+        onClear={() => setRecords([])}
+      />
 
       <div className="freeform-footer">
         <p>任意题诊断与图片识别需要联网；内置 12 题和上方比较演示仍可离线运行。</p>

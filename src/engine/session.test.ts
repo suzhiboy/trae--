@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { PracticeAttempt, PracticeAttemptKind, VerificationStatus } from '../types';
+import type {
+  DiagnosisRecord,
+  PracticeAttempt,
+  PracticeAttemptKind,
+  VerificationStatus,
+} from '../types';
 import { diagnoseAttempt } from './attempt';
-import { summarizeSession } from './session';
+import { summarizeDiagnoses, summarizeSession } from './session';
 
 function answered(
   questionId: string,
@@ -116,5 +121,99 @@ describe('summarizeSession', () => {
     expect(report.skipped).toBe(1);
     expect(report.accuracy).toBe(0);
     expect(report.averageSeconds).toBe(0);
+  });
+});
+
+function diagnosisRecord(overrides: Partial<DiagnosisRecord> = {}): DiagnosisRecord {
+  return {
+    id: 'record-1',
+    createdAt: 1,
+    source: 'ai',
+    question: '已知 f(x)=x²-2x+3，求 f(-1)',
+    finalAnswer: '2',
+    questionId: null,
+    patternId: null,
+    status: 'diagnosed',
+    reason: '一次项符号写错',
+    knowledgePoint: '函数值求解',
+    knowledgeNodeId: 'function-value',
+    weakNodeIds: [],
+    verification: 'consistent',
+    ...overrides,
+  };
+}
+
+describe('summarizeDiagnoses：任意题诊断汇总', () => {
+  it('合并节点与知识点文本，去重并只统计已确认错因', () => {
+    const summary = summarizeDiagnoses([
+      diagnosisRecord(),
+      diagnosisRecord({
+        id: 'record-2',
+        knowledgeNodeId: null,
+        weakNodeIds: ['quadratic-equation'],
+        knowledgePoint: '因式分解。',
+      }),
+      diagnosisRecord({
+        id: 'record-3',
+        knowledgeNodeId: null,
+        weakNodeIds: ['quadratic-equation'],
+        knowledgePoint: '因式分解',
+        status: 'process-error',
+      }),
+      diagnosisRecord({
+        id: 'record-4',
+        status: 'unknown',
+        knowledgeNodeId: 'log-definition',
+        knowledgePoint: '对数定义',
+        reason: '证据不足',
+      }),
+      diagnosisRecord({
+        id: 'record-5',
+        status: 'correct',
+        knowledgeNodeId: 'power-rules',
+        knowledgePoint: '幂的运算法则',
+      }),
+    ]);
+
+    expect(summary.total).toBe(5);
+    expect(summary.correct).toBe(1);
+    expect(summary.diagnosed).toBe(2);
+    expect(summary.processError).toBe(1);
+    expect(summary.unknown).toBe(1);
+    expect(summary.weakNodeIds).toEqual(['function-value', 'quadratic-equation']);
+    expect(summary.weakKnowledgePoints).toEqual(['因式分解。']);
+    expect(summary.learningPathIds).toEqual(expect.arrayContaining([
+      'function-concept',
+      'function-value',
+      'factorization',
+      'quadratic-equation',
+    ]));
+  });
+
+  it('没有记录时返回空汇总，不生成补习路径', () => {
+    expect(summarizeDiagnoses([])).toEqual({
+      total: 0,
+      correct: 0,
+      diagnosed: 0,
+      processError: 0,
+      unknown: 0,
+      weakNodeIds: [],
+      weakKnowledgePoints: [],
+      learningPathIds: [],
+    });
+  });
+
+  it('非法知识节点 ID 不进入薄弱点，也不污染学习路径', () => {
+    const summary = summarizeDiagnoses([
+      diagnosisRecord({
+        knowledgeNodeId: 'not-a-node',
+        weakNodeIds: ['also-not-a-node'],
+        knowledgePoint: '未知知识点',
+      }),
+    ]);
+
+    expect(summary.weakNodeIds).toEqual([]);
+    expect(summary.learningPathIds).toEqual([]);
+    expect(summary.weakKnowledgePoints).toEqual(['未知知识点']);
   });
 });

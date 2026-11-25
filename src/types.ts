@@ -170,6 +170,36 @@ export interface VerifiedFreeformVariant {
 /** 变式答错后再诊断时，与原错因的关系。 */
 export type VariantErrorVerdict = 'same-error' | 'different-error' | 'undetermined';
 
+/** 不绑定内置题库的诊断记录，用于会话汇总、CSV 与教师视图。 */
+export interface DiagnosisRecord {
+  id: string;
+  createdAt: number;
+  source: 'rules' | 'ai';
+  question: string;
+  finalAnswer: string;
+  /** 命中内置题时保留题号；任意题为 null。 */
+  questionId: string | null;
+  /** 命中内置错因模式时保留模式号；任意题为 null。 */
+  patternId: string | null;
+  status: AttemptStatus;
+  reason: string;
+  knowledgePoint: string;
+  knowledgeNodeId: string | null;
+  weakNodeIds: string[];
+  verification: FreeformVerification['conclusion'] | null;
+}
+
+export interface DiagnosisSummary {
+  total: number;
+  correct: number;
+  diagnosed: number;
+  processError: number;
+  unknown: number;
+  weakNodeIds: string[];
+  weakKnowledgePoints: string[];
+  learningPathIds: string[];
+}
+
 export type ClaimKind = 'arithmetic' | 'equation' | 'set' | 'answer' | 'quote';
 
 /** 模型自己声明“这条结论可被独立复算”。 */
