@@ -311,6 +311,34 @@ describe('内置题优先规则', () => {
   });
 });
 
+describe('核验层：函数步骤的最后一段也必须复算', () => {
+  it('第一段算对、最后一段写错时，不会被当成正确步骤', () => {
+    const result = buildAiDiagnosis(
+      {
+        question: '已知 f(x)=x²-3x+2，求 f(2)',
+        finalAnswer: '4',
+        steps: ['f(2)=4-6+2=4'],
+      },
+      aiResult({
+        correctAnswer: '0',
+        standardSteps: ['f(2)=2^2-3*2+2=4-6+2=0'],
+        firstWrongStepIndex: 1,
+        stepQuote: 'f(2)=4-6+2=4',
+        reason: '最后一步加法把 4-6+2 算成了 4',
+        knowledgePoint: '函数值求解',
+        knowledgeNodeId: 'function-value',
+      }),
+    );
+
+    expect(result.status).toBe('diagnosed');
+    expect(result.firstWrongStepIndex).toBe(0);
+    expect(result.verification.claims.some(
+      (claim) => claim.kind === 'student-step' && claim.status === 'verified',
+    )).toBe(true);
+    expect(result.verification.conclusion).not.toBe('conflict');
+  });
+});
+
 describe('答案等价归一化', () => {
   it('解集顺序无关', () => {
     expect(answersEquivalent('x=3或x=2', 'x=2或x=3')).toBe(true);

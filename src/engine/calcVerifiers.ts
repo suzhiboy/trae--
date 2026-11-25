@@ -204,7 +204,15 @@ function checkFunctionStep(question: string, quote: string): FunctionStepCheck |
   if (!call) return null;
   const expected = evaluateFunctionAt(model, call.argument);
   if (expected === null) return null;
-  const studentValue = firstValueAfterCall(call.rest);
+
+  // 先看整条等式链：避免“第一段算对了、最后一段写错”被当成正确步骤。
+  const chain = analyzeEquationChain(quote);
+  let studentValue = firstValueAfterCall(call.rest);
+  if (chain.status === 'inconsistent' && chain.wrongSegmentIndex !== null) {
+    studentValue = chain.values[chain.wrongSegmentIndex];
+  } else if (chain.status === 'consistent') {
+    studentValue = chain.recomputed;
+  }
 
   if (studentValue === null) {
     return {
