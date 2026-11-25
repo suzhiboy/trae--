@@ -148,6 +148,28 @@ export interface SessionReport {
 
 export type VerificationState = 'verified' | 'conflict' | 'unverified';
 
+/** 变式候选；答案必须通过本地复算后才允许展示。 */
+export interface FreeformVariantCandidate {
+  stem: string;
+  answer: string;
+}
+
+/** 已通过独立复算的变式。 */
+export interface VerifiedFreeformVariant {
+  id: string;
+  stem: string;
+  answer: string;
+  verification: {
+    status: 'verified';
+    expected: string | null;
+    detail: string;
+    kind: 'function' | 'equation' | 'sequence' | 'set' | 'arithmetic' | null;
+  };
+}
+
+/** 变式答错后再诊断时，与原错因的关系。 */
+export type VariantErrorVerdict = 'same-error' | 'different-error' | 'undetermined';
+
 export type ClaimKind = 'arithmetic' | 'equation' | 'set' | 'answer' | 'quote';
 
 /** 模型自己声明“这条结论可被独立复算”。 */
@@ -168,6 +190,8 @@ export interface FreeformAiResult {
   knowledgePoint: string;
   knowledgeNodeId: string | null;
   variant: { stem: string; answer: string };
+  /** 2-3 个候选变式，仍需本地复算后才展示；旧服务端可能只返回 variant。 */
+  variants?: FreeformVariantCandidate[];
   confidence: 'high' | 'medium' | 'low';
   claims: AiClaim[];
   insufficientEvidence: boolean;

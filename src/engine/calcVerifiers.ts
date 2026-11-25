@@ -13,7 +13,7 @@ export interface AnswerCheck {
   /** 本地复算得到的规范答案；无法算出时为 null。 */
   expected: string | null;
   detail: string;
-  kind: 'function' | 'equation' | 'sequence' | 'set' | null;
+  kind: 'function' | 'equation' | 'sequence' | 'set' | 'arithmetic' | null;
 }
 
 export interface StepCheck {
@@ -438,6 +438,57 @@ function checkSequenceAnswer(question: string, answer: string): AnswerCheck | nu
   };
 }
 
+/** 只解析“求 a_n / 求第 n 项”这类单项请求，避免误把求和题当单项。 */
+function checkSequenceTermAnswer(question: string, answer: string): AnswerCheck | null {
+  const text = normalizeMathText(question);
+  const a1Match = /a\s*_?[1]\s*=\s*(-?\d+(?:\.\d+)?)/.exec(text);
+  const dMatch = /d\s*=\s*(-?\d+(?:\.\d+)?)/.exec(text);
+  const nMatch = /求\s*a\s*_?([0-9]+)/.exec(text) ?? /求第\s*([0-9]+)\s*项/.exec(text);
+  if (!a1Match || !dMatch || !nMatch) return null;
+
+  const n = Number(nMatch[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const a1 = Number(a1Match[1]);
+  const d = Number(dMatch[1]);
+  const expected = a1 + (n - 1) * d;
+  const expectedText = formatNumber(expected);
+  const claimed = parseNumericAnswer(answer);
+  const consistent = claimed !== null && isClose(claimed, expected);
+
+  return {
+    status: consistent ? 'verified' : 'conflict',
+    expected: expectedText,
+    detail: consistent
+      ? `用 a_n=a1+(n-1)d 复算：a${n}=${expectedText}，与答案一致。`
+      : `用 a_n=a1+(n-1)d 复算：a${n}=${expectedText}，与答案「${answer}」不一致。`,
+    kind: 'sequence',
+  };
+}
+
+/** 纯数字算式题（如“计算 1-2+3”）；含字母的代数式不在此处硬判。 */
+function checkArithmeticAnswer(question: string, answer: string): AnswerCheck | null {
+  const text = normalizeMathText(question);
+  const match = /(?:计算|求)\s*([0-9π+\-*/^().]+)/.exec(text);
+  if (!match) return null;
+  const expression = match[1];
+  if (!/[0-9π]/.test(expression) || !/[+\-*/^]/.test(expression)) return null;
+
+  const expected = evaluateExpression(expression);
+  if (expected === null) return null;
+  const expectedText = formatNumber(expected);
+  const claimed = parseNumericAnswer(answer);
+  const consistent = claimed !== null && isClose(claimed, expected);
+
+  return {
+    status: consistent ? 'verified' : 'conflict',
+    expected: expectedText,
+    detail: consistent
+      ? `本地复算 ${expression} = ${expectedText}，与答案一致。`
+      : `本地复算 ${expression} = ${expectedText}，与答案「${answer}」不一致。`,
+    kind: 'arithmetic',
+  };
+}
+
 /* ---------- 集合运算 ---------- */
 
 type SetValue = Set<string>;
@@ -638,8 +689,10 @@ export function checkQuestionAnswer(question: string, steps: string[], answer: s
   const checks = [
     checkSetAnswer(question, answer),
     checkFunctionAnswer(question, steps, answer),
+    checkSequenceTermAnswer(question, answer),
     checkSequenceAnswer(question, answer),
     checkEquationAnswer(question, answer),
+    checkArithmeticAnswer(question, answer),
   ].filter((check): check is AnswerCheck => check !== null);
 
   if (checks.length === 0) {
