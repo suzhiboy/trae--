@@ -47,9 +47,9 @@ export default function Expertise() {
     <section className="expertise section-shell" id="expertise" ref={root} aria-labelledby="expertise-heading">
       <div className="section-heading">
         <div><span className="section-index">03 / EXPERTISE</span><h2 id="expertise-heading" className="expertise-title display-font">
-          <span className="word-mask"><span className="expertise-word">Focused.</span></span>
-          <span className="word-mask"><span className="expertise-word">Scalable.</span></span>
-          <span className="word-mask"><span className="expertise-word">Proven.</span></span>
+          <span className="word-mask"><span className="expertise-word">Evidence.</span></span>
+          <span className="word-mask"><span className="expertise-word">Locate.</span></span>
+          <span className="word-mask"><span className="expertise-word">Verify.</span></span>
         </h2></div>
         <span className="section-count" data-counter="8" data-counter-pad="4">0000</span>
       </div>
@@ -96,7 +96,7 @@ export default function Expertise() {
                       <div><h4>Services</h4><ul>{item.services.map((entry) => <li key={entry}>{entry}</li>)}</ul></div>
                     </div>
                     <div className="expertise-actions">
-                      <a href="#works" tabIndex={expanded ? 0 : -1} className="outline-button roll-trigger"><TextRoll text="WORKS" /></a>
+                      <a href="#compare" tabIndex={expanded ? 0 : -1} className="outline-button roll-trigger"><TextRoll text="LIVE DEMO" /></a>
                       <a href="#methodology" tabIndex={expanded ? 0 : -1} className="outline-button roll-trigger"><TextRoll text="DETAILS" /></a>
                     </div>
                   </div>
@@ -109,7 +109,7 @@ export default function Expertise() {
 
       <div className="expertise-outro">
         <p data-reveal>不是给出更多内容，而是把该先理解的内容排在前面。</p>
-        <a href="#contact" ref={magnetic} className="solid-button roll-trigger"><TextRoll text="GET IN TOUCH" /></a>
+        <a href="#compare" ref={magnetic} className="solid-button roll-trigger"><TextRoll text="COMPARE TWO DRAFTS" /></a>
       </div>
     </section>
   );

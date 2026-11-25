@@ -10,7 +10,7 @@ export default function Methodology() {
   return (
     <section className="methodology section-shell" id="methodology" ref={root} aria-labelledby="methodology-title">
       <div className="section-heading">
-        <div><span className="section-index">04 / METHODOLOGY</span><h2 id="methodology-title" data-reveal>A methodical approach to building complex systems.</h2></div>
+        <div><span className="section-index">04 / METHODOLOGY</span><h2 id="methodology-title" data-reveal>From one wrong answer to one next step.</h2></div>
         <span className="section-count">0005</span>
       </div>
 
@@ -51,8 +51,8 @@ export default function Methodology() {
       </div>
 
       <div className="methodology-outro">
-        <p data-reveal>Start with a question.<br />Build with clarity.</p>
-        <a href="#contact" className="solid-button roll-trigger"><TextRoll text="START A CONVERSATION" /></a>
+        <p data-reveal>Read the draft.<br />Locate the line.<br />Verify with a new question.</p>
+        <a href="#compare" className="solid-button roll-trigger"><TextRoll text="COMPARE TWO DRAFTS" /></a>
       </div>
     </section>
   );

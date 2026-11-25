@@ -72,7 +72,7 @@ export default function FeaturedWorks() {
       }}
     >
       <div className="section-heading">
-        <div><span className="section-index">02 / FEATURED WORKS</span><h2 data-reveal>让下一步变得清楚。</h2></div>
+        <div><span className="section-index">02 / EVIDENCE CASES</span><h2 data-reveal>同一个答案，不同证据。</h2></div>
         <a href="#expertise" className="text-link roll-trigger"><TextRoll text="ALL CAPABILITIES" /></a>
       </div>
 

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type Lenis from 'lenis';
-import CityClock from './CityClock';
 import TextRoll from './TextRoll';
 import { initMenu } from '../animations/initMenu';
 
@@ -8,24 +7,24 @@ interface MenuLink { label: string; href: string; tag?: string }
 interface MenuColumn { title: string; links: MenuLink[]; className?: string }
 
 const columns: MenuColumn[] = [
-  { title: 'Home', links: [{ label: '系统首页', href: '#home' }, { label: '诊断笔记', href: '#highlights' }, { label: '方法说明', href: '#methodology' }] },
+  { title: 'Home', links: [{ label: '系统首页', href: '#home' }, { label: '同答异因', href: '#compare', tag: 'Live demo' }, { label: '做题诊断', href: '#practice' }, { label: '方法说明', href: '#methodology' }] },
   {
     title: 'Works',
     className: 'menu-column--works',
     links: [
-      { label: '函数值求解', href: '#works', tag: 'Rule-backed' },
+      { label: '比较两份草稿', href: '#compare', tag: 'Editable' },
+      { label: '函数值求解', href: '#compare' },
       { label: '一元二次方程', href: '#works' },
       { label: '幂的运算法则', href: '#works' },
-      { label: '对数定义', href: '#works', tag: 'In progress' },
+      { label: '对数定义', href: '#works' },
       { label: '等差数列', href: '#works' },
       { label: '古典概率', href: '#works' },
-      { label: '知识依赖图谱', href: '#highlights', tag: 'Interactive' },
-      { label: '历史验证', href: '#contact' },
+      { label: '知识依赖图谱', href: '#highlights' },
     ],
   },
   { title: 'Expertise', links: [{ label: '函数与方程', href: '#expertise' }, { label: '指数与对数', href: '#expertise' }, { label: '数列与概率', href: '#expertise' }, { label: '诊断规则', href: '#expertise' }] },
   { title: 'About', links: [{ label: '系统方法', href: '#methodology' }, { label: '五层模型', href: '#methodology' }, { label: '设计原则', href: '#methodology' }] },
-  { title: 'Contact', links: [{ label: '演示交流', href: '#contact' }, { label: '复制邮箱', href: 'mailto:hello@example.com' }, { label: '语言切换', href: '#contact' }] },
+  { title: 'Evidence', links: [{ label: '自动化测试', href: '#methodology' }, { label: '试用方案', href: '#contact' }, { label: '离线可用', href: '#home' }] },
 ];
 
 export default function Menu({ lenis }: { lenis: React.RefObject<Lenis | null> }) {
@@ -43,7 +42,7 @@ export default function Menu({ lenis }: { lenis: React.RefObject<Lenis | null> }
         <a href="#home" className="site-logo display-font roll-trigger" aria-label="Knowledge Detective 首页">
           <TextRoll text="KD®" />
         </a>
-        <CityClock />
+        <span className="site-header__center">SAME ANSWER / DIFFERENT EVIDENCE</span>
         <button className="menu-button roll-trigger" onClick={() => setOpen(true)} aria-expanded={open} aria-controls="site-menu">
           <span className="status-dot" />
           <TextRoll text="MENU" />

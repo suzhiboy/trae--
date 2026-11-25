@@ -64,7 +64,7 @@ export default function Highlights() {
   return (
     <section className="highlights section-shell" id="highlights" aria-labelledby="highlights-title">
       <div className="section-heading">
-        <div><span className="section-index">01 / HIGHLIGHTS</span><h2 id="highlights-title" data-reveal>把线索放在一起。</h2></div>
+        <div><span className="section-index">01 / EVIDENCE</span><h2 id="highlights-title" data-reveal>三条证据，不是一句猜测。</h2></div>
         <span className="section-count" data-counter="3" data-counter-pad="4">0000</span>
       </div>
       <div className="highlights-viewport" ref={viewport} data-cursor="DRAG">
