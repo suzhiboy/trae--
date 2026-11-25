@@ -11,7 +11,7 @@ function RollingCharacter({ character }: { character: string }) {
 
 export function RollingText({ text, className = '' }: { text: string; className?: string }) {
   return (
-    <span className={`rolling-text ${className}`} aria-label={text}>
+    <span className={`rolling-text ${className}`}>
       {text.split('').map((character, index) => <RollingCharacter key={index} character={character} />)}
     </span>
   );

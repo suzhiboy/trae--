@@ -17,14 +17,13 @@ const columns: MenuColumn[] = [
       { label: '一元二次方程', href: '#works' },
       { label: '幂的运算法则', href: '#works' },
       { label: '对数定义', href: '#works' },
-      { label: '等差数列', href: '#works' },
       { label: '古典概率', href: '#works' },
       { label: '知识依赖图谱', href: '#highlights' },
     ],
   },
-  { title: 'Expertise', links: [{ label: '函数与方程', href: '#expertise' }, { label: '指数与对数', href: '#expertise' }, { label: '数列与概率', href: '#expertise' }, { label: '诊断规则', href: '#expertise' }] },
+  { title: 'Expertise', links: [{ label: '函数与方程', href: '#expertise' }, { label: '指数与对数', href: '#expertise' }, { label: '三角与数列', href: '#expertise' }, { label: '概率与集合', href: '#expertise' }] },
   { title: 'About', links: [{ label: '系统方法', href: '#methodology' }, { label: '五层模型', href: '#methodology' }, { label: '设计原则', href: '#methodology' }] },
-  { title: 'Evidence', links: [{ label: '自动化测试', href: '#methodology' }, { label: '试用方案', href: '#contact' }, { label: '离线可用', href: '#home' }] },
+  { title: 'Evidence', links: [{ label: '自动化测试', href: '#methodology' }, { label: '试用方案', href: '#contact' }, { label: '本地规则', href: '#home' }] },
 ];
 
 export default function Menu({ lenis }: { lenis: React.RefObject<Lenis | null> }) {
@@ -39,7 +38,7 @@ export default function Menu({ lenis }: { lenis: React.RefObject<Lenis | null> }
   return (
     <>
       <header className="site-header">
-        <a href="#home" className="site-logo display-font roll-trigger" aria-label="Knowledge Detective 首页">
+        <a href="#home" className="site-logo display-font roll-trigger" aria-label="KD® Knowledge Detective 首页">
           <TextRoll text="KD®" />
         </a>
         <span className="site-header__center">SAME ANSWER / DIFFERENT EVIDENCE</span>

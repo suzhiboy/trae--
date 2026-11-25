@@ -78,9 +78,9 @@ export default function FeaturedWorks() {
 
       <div className="featured__layout">
         <div className="featured__visual">
-          <div className="featured__image featured__image--previous"><img src={works[previous].image} alt="" aria-hidden="true" /></div>
+          <div className="featured__image featured__image--previous"><img src={works[previous].image} alt="" aria-hidden="true" width={1280} height={719} decoding="async" /></div>
           <div className="featured__image featured__image--current" ref={currentImage}>
-            <img src={work.image} alt={`${work.title}数学结构示意图`} />
+            <img src={work.image} alt={`${work.title}数学结构示意图`} width={1280} height={719} decoding="async" />
           </div>
           <span className="featured__category">{work.category}</span>
         </div>
@@ -91,8 +91,8 @@ export default function FeaturedWorks() {
           <p className="featured__formula">{work.formula}</p>
           <p className="featured__summary">{work.summary}</p>
           <div className="featured__controls">
-            <button onClick={() => goTo(current - 1)} className="roll-trigger" aria-label="上一个项目"><ArrowLeft strokeWidth={1.2} /><TextRoll text="PREV" /></button>
-            <button onClick={() => goTo(current + 1)} className="roll-trigger" aria-label="下一个项目"><TextRoll text="NEXT" /><ArrowRight strokeWidth={1.2} /></button>
+            <button onClick={() => goTo(current - 1)} className="roll-trigger" aria-label="PREV · 上一个项目"><ArrowLeft strokeWidth={1.2} /><TextRoll text="PREV" /></button>
+            <button onClick={() => goTo(current + 1)} className="roll-trigger" aria-label="NEXT · 下一个项目"><TextRoll text="NEXT" /><ArrowRight strokeWidth={1.2} /></button>
           </div>
         </div>
       </div>

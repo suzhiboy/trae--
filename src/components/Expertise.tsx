@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { expertise } from '../data/site';
+import { expertise, expertiseCoverageNote } from '../data/site';
 import { gsap } from '../animations/motion';
 import { initMagnetic } from '../animations/initMagnetic';
 import TextRoll from './TextRoll';
@@ -51,7 +51,7 @@ export default function Expertise() {
           <span className="word-mask"><span className="expertise-word">Locate.</span></span>
           <span className="word-mask"><span className="expertise-word">Verify.</span></span>
         </h2></div>
-        <span className="section-count" data-counter="8" data-counter-pad="4">0000</span>
+        <span className="section-count" data-counter="7" data-counter-pad="4">0000</span>
       </div>
 
       <div className="expertise__intro">
@@ -88,12 +88,19 @@ export default function Expertise() {
               </button>
               <div className="expertise-detail" id={`expertise-${item.id}`} role="region" aria-labelledby={`expertise-trigger-${item.id}`} aria-hidden={!expanded}>
                 <div className="expertise-detail__inner">
-                  <figure data-image-reveal><img src={item.image} alt={`${item.title}抽象结构插图`} loading="lazy" /></figure>
+                  <figure data-image-reveal><img src={item.image} alt={`${item.title}抽象结构插图`} width={960} height={539} loading="lazy" decoding="async" /></figure>
                   <div className="expertise-detail__copy">
                     <p>{item.summary}</p>
+                    <div className="expertise-coverage">
+                      <span>内置 {item.builtInCount} 题</span>
+                      <span>{item.builtInQuestions.join(' · ')}</span>
+                      <b className={`expertise-scope is-${item.freeform}`}>
+                        {item.freeform === 'verified' ? '任意题：可本地复算' : '任意题：实验性 · 仅 AI 推断'}
+                      </b>
+                    </div>
                     <div className="expertise-lists">
-                      <div><h4>Capabilities</h4><ul>{item.capabilities.map((entry) => <li key={entry}>{entry}</li>)}</ul></div>
-                      <div><h4>Services</h4><ul>{item.services.map((entry) => <li key={entry}>{entry}</li>)}</ul></div>
+                      <div><h3>Capabilities</h3><ul>{item.capabilities.map((entry) => <li key={entry}>{entry}</li>)}</ul></div>
+                      <div><h3>Services</h3><ul>{item.services.map((entry) => <li key={entry}>{entry}</li>)}</ul></div>
                     </div>
                     <div className="expertise-actions">
                       <a href="#compare" tabIndex={expanded ? 0 : -1} className="outline-button roll-trigger"><TextRoll text="LIVE DEMO" /></a>
@@ -106,6 +113,8 @@ export default function Expertise() {
           );
         })}
       </div>
+
+      <p className="expertise-coverage-note">{expertiseCoverageNote}</p>
 
       <div className="expertise-outro">
         <p data-reveal>不是给出更多内容，而是把该先理解的内容排在前面。</p>

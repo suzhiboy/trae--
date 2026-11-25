@@ -72,7 +72,7 @@ function DraftDiagnosis({ diagnosis }: { diagnosis: AttemptDiagnosis }) {
         <span>{diagnosis.status === 'correct' ? 'CORRECT' : diagnosis.status === 'unknown' ? 'NEED MORE EVIDENCE' : 'DIAGNOSED'}</span>
         <b>{statusLabel(diagnosis)}</b>
       </div>
-      <h4>{diagnosis.reason}</h4>
+      <h3>{diagnosis.reason}</h3>
       {diagnosis.stepQuote && (
         <blockquote>
           <span>学生原句</span>
