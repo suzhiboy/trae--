@@ -2,38 +2,30 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  ConfigError,
+  buildHealth,
+  resolveProviderRegistry,
+  resolveRequestConfig,
+} from './server/ai/providers.mjs';
+import { ModelError, callChatModel, listProviderModels } from './server/ai/protocols.mjs';
+import { callStructuredModel } from './server/ai/structured.mjs';
 
-// 可选 AI 服务：默认使用火山方舟的 OpenAI 兼容接口；模型 ID 全部从环境变量读取，不写死。
-// 未配置密钥或模型时，内置 12 题仍可完全离线诊断，任意题入口会明确提示“未配置”。
+// 供应商配置在启动时解析一次，之后只读；每个请求只读取自己的配置对象，
+// 不修改进程级变量，因此两个并发用户不会串供应商或串凭证。
+// 未配置任何模型/Key 时，内置 12 题仍可完全离线诊断，任意题入口会明确提示“未配置”。
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const DIST = join(ROOT, 'dist');
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const AI_BASE_URL = (process.env.AI_BASE_URL ?? 'https://ark.cn-beijing.volces.com/api/v3').replace(/\/+$/, '');
-const AI_MODEL = process.env.AI_MODEL ?? '';
-const AI_VISION_MODEL = process.env.AI_VISION_MODEL ?? AI_MODEL;
-const AI_API_KEY = process.env.AI_API_KEY ?? '';
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 20000);
 const AI_VISION_TIMEOUT_MS = Number(process.env.AI_VISION_TIMEOUT_MS ?? 20000);
 const AI_FALLBACK_TIMEOUT_MS = Number(process.env.AI_FALLBACK_TIMEOUT_MS ?? 8000);
-const AI_CONFIGURED = Boolean(AI_API_KEY && AI_MODEL);
-const AI_CUSTOM_KEY_READY = Boolean(AI_MODEL);
-const AI_PROVIDER_NAME = (process.env.AI_PROVIDER_NAME ?? '').trim() || providerLabel(AI_BASE_URL);
+const AI_TEST_TIMEOUT_MS = Number(process.env.AI_TEST_TIMEOUT_MS ?? 15000);
+const AI_MODELS_TIMEOUT_MS = Number(process.env.AI_MODELS_TIMEOUT_MS ?? 10000);
+const REGISTRY = resolveProviderRegistry(process.env);
 const BODY_LIMIT = 64 * 1024;
 const IMAGE_BODY_LIMIT = 8 * 1024 * 1024;
-
-function providerLabel(baseUrl) {
-  try {
-    const host = new URL(baseUrl).hostname;
-    if (host.includes('volces.com')) return '火山方舟';
-    if (host.includes('openai.com')) return 'OpenAI';
-    if (host.includes('dashscope')) return '阿里云百炼';
-    if (host.includes('deepseek')) return 'DeepSeek';
-    return host;
-  } catch {
-    return 'AI 服务';
-  }
-}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -144,30 +136,27 @@ function buildMessages(input) {
   ];
 }
 
-async function diagnoseWithAi(input, apiKey) {
+async function diagnoseWithAi(input, config) {
   const allowedNodeIds = new Set(input.nodes.map((node) => node.id));
   const result = await callStructuredModel({
-    model: AI_MODEL,
+    call: (messages) => callChatModel({
+      provider: config.provider,
+      apiKey: config.apiKey,
+      model: config.model,
+      messages,
+      timeout: AI_FALLBACK_TIMEOUT_MS,
+      jsonMode: config.jsonMode,
+      maxTokens: config.maxTokens,
+      temperature: config.temperature,
+    }),
     messages: buildMessages(input),
-    timeout: AI_FALLBACK_TIMEOUT_MS,
     validate: (value) => validateResult(value, allowedNodeIds),
-    apiKey,
   });
   if (!result) throw new ModelError('invalid-schema');
   return result;
 }
 
-/* ---------- 任意题诊断：Ark OpenAI 兼容接口 ---------- */
-
-class ModelError extends Error {
-  constructor(code, status = 502, retryAfter = null) {
-    super(code);
-    this.name = 'ModelError';
-    this.code = code;
-    this.status = status;
-    this.retryAfter = retryAfter;
-  }
-}
+/* ---------- 任意题诊断：供应商协议适配 ---------- */
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -434,140 +423,42 @@ function buildOcrMessages(image) {
   ];
 }
 
-function stripCodeFence(content) {
-  return content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+function requestMode(payload) {
+  return payload?.credentialMode === 'custom' ? 'custom' : 'site';
 }
 
-async function callChatCompletion({ model, messages, timeout, apiKey }) {
-  let response;
+/**
+ * 单次请求解析“供应商 + 模型 + 凭证”；站点模式的地址和模型只来自服务端配置。
+ * 配置错误直接写响应并返回 null，调用方停止处理。
+ */
+function resolveConfigOrWrite(response, raw, kind) {
   try {
-    response = await fetch(`${AI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-        messages,
-        max_tokens: 3000,
-      }),
-      signal: AbortSignal.timeout(timeout),
-    });
+    return resolveRequestConfig(raw, { registry: REGISTRY, kind });
   } catch (error) {
-    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') throw new ModelError('timeout');
-    throw new ModelError('network');
-  }
-
-  if (!response.ok) {
-    const retryAfter = Number(response.headers.get('retry-after')) || null;
-    if (response.status === 429) throw new ModelError('rate-limited', 429, retryAfter);
-    if (response.status === 401 || response.status === 403) throw new ModelError('auth-failed');
-    if (response.status === 404) throw new ModelError('model-not-found');
-    if (response.status === 400) throw new ModelError('bad-request');
-    if (response.status >= 500) throw new ModelError('upstream-5xx');
-    throw new ModelError(`upstream-${response.status}`);
-  }
-
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new ModelError('invalid-response');
-  }
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) throw new ModelError('empty-content');
-
-  let parsed;
-  try {
-    parsed = JSON.parse(stripCodeFence(content));
-  } catch {
-    throw new ModelError('invalid-json');
-  }
-  return { parsed, content: content.slice(0, 2000) };
-}
-
-/**
- * 结构不合格时重试一次；仍不合格返回 null，由端点降级为“证据不足”。
- * 上游 429、超时、鉴权失败等不重试，直接交给端点返回明确错误码。
- */
-async function callStructuredModel({ model, messages, timeout, validate, apiKey }) {
-  let currentMessages = messages;
-  let lastContent = '';
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const { parsed, content } = await callChatCompletion({
-        model,
-        messages: currentMessages,
-        timeout,
-        apiKey,
+    if (error instanceof ConfigError) {
+      writeJson(response, error.status, {
+        available: false,
+        error: error.code,
+        credentialMode: requestMode(raw),
       });
-      lastContent = content;
-      const result = validate(parsed);
-      if (result) return result;
-    } catch (error) {
-      if (!(error instanceof ModelError && error.code === 'invalid-json' && attempt === 0)) {
-        throw error;
-      }
+      return null;
     }
-
-    if (attempt === 0) {
-      currentMessages = [
-        ...currentMessages,
-        { role: 'assistant', content: lastContent || '（上一次输出不是合法 JSON）' },
-        {
-          role: 'user',
-          content: '上一次输出没有通过结构校验。请只输出一个 JSON 对象，严格包含要求的全部字段，不要输出 Markdown、代码围栏或解释文字。',
-        },
-      ];
-    }
+    throw error;
   }
-
-  return null;
 }
 
-/**
- * 按单次请求选择凭证：站点模式用服务端默认 Key，自定义模式只用请求携带的 Key。
- * 不修改任何全局变量，两个并发请求不会共享鉴权状态。
- */
-function resolveCredential(payload, model = AI_MODEL) {
-  const rawMode = payload?.credentialMode;
-  if (rawMode !== undefined && rawMode !== 'site' && rawMode !== 'custom') {
-    return { error: 'invalid-request', status: 400, mode: 'site' };
-  }
-  const mode = rawMode === 'custom' ? 'custom' : 'site';
-
-  if (mode === 'custom') {
-    const apiKey = typeof payload?.apiKey === 'string' ? payload.apiKey.trim() : '';
-    if (!apiKey) return { error: 'custom-key-required', status: 400, mode };
-    if (apiKey.length > 512) return { error: 'invalid-request', status: 400, mode };
-    if (!model) return { error: 'ai-model-not-configured', status: 503, mode };
-    return { mode, apiKey };
-  }
-
-  if (!model) return { error: 'ai-model-not-configured', status: 503, mode };
-  if (!AI_API_KEY) return { error: 'ai-not-configured', status: 503, mode };
-  return { mode, apiKey: AI_API_KEY };
-}
-
-function writeCredentialError(response, credential) {
-  writeJson(response, credential.status, {
-    available: false,
-    error: credential.error,
-    credentialMode: credential.mode,
-  });
-}
-
-function writeModelError(response, error, mode = 'site') {
+function writeModelError(response, error, config = null) {
+  const mode = config?.mode ?? 'site';
+  const providerFields = config
+    ? { providerId: config.providerId, provider: config.providerLabel }
+    : {};
   if (error instanceof ModelError) {
     if (error.code === 'auth-failed' && mode === 'custom') {
       writeJson(response, 401, {
         available: true,
         error: 'custom-key-invalid',
         credentialMode: 'custom',
+        ...providerFields,
       });
       return;
     }
@@ -575,11 +466,12 @@ function writeModelError(response, error, mode = 'site') {
       available: true,
       error: error.code,
       credentialMode: mode,
+      ...providerFields,
       ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
     });
     return;
   }
-  writeJson(response, 502, { available: true, error: 'ai-failed', credentialMode: mode });
+  writeJson(response, 502, { available: true, error: 'ai-failed', credentialMode: mode, ...providerFields });
 }
 
 function serveStatic(request, response, pathname) {
@@ -625,15 +517,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (url.pathname === '/api/health') {
-    writeJson(response, 200, {
-      ok: true,
-      ai: AI_CONFIGURED,
-      model: AI_MODEL || null,
-      visionModel: AI_VISION_MODEL || null,
-      vision: Boolean(AI_VISION_MODEL),
-      provider: AI_PROVIDER_NAME,
-      customKeyReady: AI_CUSTOM_KEY_READY,
-    });
+    writeJson(response, 200, buildHealth(REGISTRY));
     return;
   }
 
@@ -642,7 +526,7 @@ const server = createServer(async (request, response) => {
       writeJson(response, 405, { error: 'method-not-allowed' });
       return;
     }
-    let mode = 'site';
+    let config = null;
     try {
       const raw = JSON.parse(await readBody(request));
       const payload = validateRequest(raw);
@@ -650,14 +534,18 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      const credential = resolveCredential(raw);
-      if (credential.error) {
-        writeCredentialError(response, credential);
-        return;
-      }
-      mode = credential.mode;
-      const result = await diagnoseWithAi(payload, credential.apiKey);
-      writeJson(response, 200, { available: true, source: 'ai', credentialMode: mode, result });
+      config = resolveConfigOrWrite(response, raw, 'text');
+      if (!config) return;
+      const result = await diagnoseWithAi(payload, config);
+      writeJson(response, 200, {
+        available: true,
+        source: 'ai',
+        credentialMode: config.mode,
+        providerId: config.providerId,
+        provider: config.providerLabel,
+        model: config.model,
+        result,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'body-too-large') {
         writeJson(response, 413, { available: true, error: 'request-too-large' });
@@ -668,7 +556,7 @@ const server = createServer(async (request, response) => {
         return;
       }
       // 超时、上游异常或结构不合格都只返回错误码，由前端保留规则诊断结果。
-      writeModelError(response, error, mode);
+      writeModelError(response, error, config);
     }
     return;
   }
@@ -678,7 +566,7 @@ const server = createServer(async (request, response) => {
       writeJson(response, 405, { error: 'method-not-allowed' });
       return;
     }
-    let mode = 'site';
+    let config = null;
     try {
       const raw = JSON.parse(await readBody(request, IMAGE_BODY_LIMIT));
       const payload = validateOcrRequest(raw);
@@ -686,18 +574,22 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-image' });
         return;
       }
-      const credential = resolveCredential(raw, AI_VISION_MODEL);
-      if (credential.error) {
-        writeCredentialError(response, credential);
-        return;
-      }
-      mode = credential.mode;
+      config = resolveConfigOrWrite(response, raw, 'vision');
+      if (!config) return;
       const result = await callStructuredModel({
-        model: AI_VISION_MODEL,
+        call: (messages) => callChatModel({
+          provider: config.provider,
+          apiKey: config.apiKey,
+          model: config.model,
+          messages,
+          timeout: AI_VISION_TIMEOUT_MS,
+          jsonMode: config.jsonMode,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+          hasImage: true,
+        }),
         messages: buildOcrMessages(payload.image),
-        timeout: AI_VISION_TIMEOUT_MS,
         validate: validateOcrOutput,
-        apiKey: credential.apiKey,
       });
       if (!result) {
         writeJson(response, 200, {
@@ -708,7 +600,14 @@ const server = createServer(async (request, response) => {
         });
         return;
       }
-      writeJson(response, 200, { available: true, credentialMode: mode, result });
+      writeJson(response, 200, {
+        available: true,
+        credentialMode: config.mode,
+        providerId: config.providerId,
+        provider: config.providerLabel,
+        model: config.model,
+        result,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'body-too-large') {
         writeJson(response, 413, { available: true, error: 'image-too-large' });
@@ -718,15 +617,17 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      if (error instanceof ModelError && error.code === 'bad-request') {
+      if (error instanceof ModelError
+        && (error.code === 'vision-model-required' || error.code === 'unsupported-image' || error.code === 'bad-request')) {
         writeJson(response, 502, {
           available: true,
           error: 'vision-model-required',
-          message: '当前模型拒绝了图片输入，请检查 AI_VISION_MODEL 是否为多模态模型。',
+          credentialMode: config?.mode ?? 'site',
+          message: '当前模型拒绝了图片输入。请在「AI 设置」中填写支持图片的模型 ID，或改用支持图片的供应商；文本诊断不受影响。',
         });
         return;
       }
-      writeModelError(response, error, mode);
+      writeModelError(response, error, config);
     }
     return;
   }
@@ -736,7 +637,7 @@ const server = createServer(async (request, response) => {
       writeJson(response, 405, { error: 'method-not-allowed' });
       return;
     }
-    let mode = 'site';
+    let config = null;
     try {
       const raw = JSON.parse(await readBody(request));
       const payload = validateFreeformRequest(raw);
@@ -744,19 +645,22 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      const credential = resolveCredential(raw);
-      if (credential.error) {
-        writeCredentialError(response, credential);
-        return;
-      }
-      mode = credential.mode;
+      config = resolveConfigOrWrite(response, raw, 'text');
+      if (!config) return;
       const allowedNodeIds = new Set(payload.nodes.map((node) => node.id));
       const result = await callStructuredModel({
-        model: AI_MODEL,
+        call: (messages) => callChatModel({
+          provider: config.provider,
+          apiKey: config.apiKey,
+          model: config.model,
+          messages,
+          timeout: AI_TIMEOUT_MS,
+          jsonMode: config.jsonMode,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+        }),
         messages: buildFreeformMessages(payload),
-        timeout: AI_TIMEOUT_MS,
         validate: (value) => validateFreeformOutput(value, allowedNodeIds),
-        apiKey: credential.apiKey,
       });
       if (!result) {
         writeJson(response, 200, {
@@ -767,7 +671,15 @@ const server = createServer(async (request, response) => {
         });
         return;
       }
-      writeJson(response, 200, { available: true, source: 'ai', credentialMode: mode, result });
+      writeJson(response, 200, {
+        available: true,
+        source: 'ai',
+        credentialMode: config.mode,
+        providerId: config.providerId,
+        provider: config.providerLabel,
+        model: config.model,
+        result,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'body-too-large') {
         writeJson(response, 413, { available: true, error: 'request-too-large' });
@@ -777,7 +689,7 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      writeModelError(response, error, mode);
+      writeModelError(response, error, config);
     }
     return;
   }
@@ -787,7 +699,7 @@ const server = createServer(async (request, response) => {
       writeJson(response, 405, { error: 'method-not-allowed' });
       return;
     }
-    let mode = 'site';
+    let config = null;
     try {
       const raw = JSON.parse(await readBody(request));
       const payload = validateVariantRequest(raw);
@@ -795,18 +707,21 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      const credential = resolveCredential(raw);
-      if (credential.error) {
-        writeCredentialError(response, credential);
-        return;
-      }
-      mode = credential.mode;
+      config = resolveConfigOrWrite(response, raw, 'text');
+      if (!config) return;
       const result = await callStructuredModel({
-        model: AI_MODEL,
+        call: (messages) => callChatModel({
+          provider: config.provider,
+          apiKey: config.apiKey,
+          model: config.model,
+          messages,
+          timeout: AI_TIMEOUT_MS,
+          jsonMode: config.jsonMode,
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+        }),
         messages: buildVariantMessages(payload),
-        timeout: AI_TIMEOUT_MS,
         validate: validateVariantOutput,
-        apiKey: credential.apiKey,
       });
       if (!result) {
         writeJson(response, 200, {
@@ -817,7 +732,15 @@ const server = createServer(async (request, response) => {
         });
         return;
       }
-      writeJson(response, 200, { available: true, source: 'ai', credentialMode: mode, result });
+      writeJson(response, 200, {
+        available: true,
+        source: 'ai',
+        credentialMode: config.mode,
+        providerId: config.providerId,
+        provider: config.providerLabel,
+        model: config.model,
+        result,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'body-too-large') {
         writeJson(response, 413, { available: true, error: 'request-too-large' });
@@ -827,7 +750,108 @@ const server = createServer(async (request, response) => {
         writeJson(response, 400, { available: true, error: 'invalid-request' });
         return;
       }
-      writeModelError(response, error, mode);
+      writeModelError(response, error, config);
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/ai/test') {
+    if (request.method !== 'POST') {
+      writeJson(response, 405, { error: 'method-not-allowed' });
+      return;
+    }
+    let config = null;
+    try {
+      const raw = JSON.parse(await readBody(request));
+      config = resolveConfigOrWrite(response, raw, 'text');
+      if (!config) return;
+      const startedAt = Date.now();
+      const { text } = await callChatModel({
+        provider: config.provider,
+        apiKey: config.apiKey,
+        model: config.model,
+        messages: [{ role: 'user', content: '只回复 OK 两个字母，不要输出其他内容。' }],
+        timeout: AI_TEST_TIMEOUT_MS,
+        jsonMode: 'none',
+        maxTokens: Math.min(64, config.maxTokens),
+        temperature: 0,
+      });
+      writeJson(response, 200, {
+        available: true,
+        ok: true,
+        credentialMode: config.mode,
+        providerId: config.providerId,
+        provider: config.providerLabel,
+        model: config.model,
+        latencyMs: Date.now() - startedAt,
+        reply: text.trim().slice(0, 80),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'body-too-large') {
+        writeJson(response, 413, { available: true, error: 'request-too-large' });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        writeJson(response, 400, { available: true, error: 'invalid-request' });
+        return;
+      }
+      writeModelError(response, error, config);
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/ai/models') {
+    if (request.method !== 'POST') {
+      writeJson(response, 405, { error: 'method-not-allowed' });
+      return;
+    }
+    let config = null;
+    try {
+      const raw = JSON.parse(await readBody(request));
+      config = resolveConfigOrWrite(response, raw, 'models');
+      if (!config) return;
+      try {
+        const models = await listProviderModels({
+          provider: config.provider,
+          apiKey: config.apiKey,
+          timeout: AI_MODELS_TIMEOUT_MS,
+        });
+        writeJson(response, 200, {
+          available: true,
+          credentialMode: config.mode,
+          providerId: config.providerId,
+          provider: config.providerLabel,
+          models,
+        });
+      } catch (error) {
+        if (error instanceof ModelError && error.code === 'auth-failed' && config.mode === 'custom') {
+          writeJson(response, 401, {
+            available: false,
+            error: 'custom-key-invalid',
+            credentialMode: 'custom',
+            providerId: config.providerId,
+          });
+          return;
+        }
+        writeJson(response, 200, {
+          available: false,
+          error: 'models-unavailable',
+          credentialMode: config.mode,
+          providerId: config.providerId,
+          provider: config.providerLabel,
+          message: '模型列表接口不可用，请手动填写模型 ID。',
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'body-too-large') {
+        writeJson(response, 413, { available: true, error: 'request-too-large' });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        writeJson(response, 400, { available: true, error: 'invalid-request' });
+        return;
+      }
+      writeModelError(response, error, config);
     }
     return;
   }
@@ -841,11 +865,15 @@ const server = createServer(async (request, response) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`knowledge-detective server: http://127.0.0.1:${PORT}`);
-  if (AI_CONFIGURED) {
-    console.log(`AI site key enabled: ${AI_BASE_URL} / provider=${AI_PROVIDER_NAME} / text=${AI_MODEL} / vision=${AI_VISION_MODEL}`);
-  } else if (AI_MODEL) {
-    console.log(`AI site key not configured; custom keys enabled: ${AI_BASE_URL} / provider=${AI_PROVIDER_NAME} / model=${AI_MODEL}`);
+  const health = buildHealth(REGISTRY);
+  const summary = health.providers
+    .map((provider) => `${provider.id}(${provider.protocol})@${provider.domain}${provider.siteKey ? ' site-key' : ''}`)
+    .join(', ');
+  console.log(`AI providers: ${summary}`);
+  if (health.ai) {
+    console.log(`AI site key enabled: ${health.provider} / text=${health.model ?? '-'} / vision=${health.visionModel ?? '-'}`);
   } else {
-    console.log('AI disabled: set AI_MODEL to enable arbitrary-question diagnosis and custom API keys');
+    console.log('AI site key not configured; users can still use their own keys in AI settings');
   }
+  for (const warning of REGISTRY.warnings) console.warn(`AI config warning: ${warning}`);
 });
